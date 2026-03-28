@@ -9,6 +9,11 @@ function sanitize(inv) {
     vintage: inv.vintage ? Number(inv.vintage) : null,
     committed: Number(inv.committed),
     projectedIRR: inv.projectedIRR != null ? Number(inv.projectedIRR) : null,
+    preferredReturn: inv.preferredReturn != null ? Number(inv.preferredReturn) : null,
+    projectedCashOnCash: inv.projectedCashOnCash != null ? Number(inv.projectedCashOnCash) : null,
+    cocStartDate: inv.cocStartDate ? String(inv.cocStartDate) : null,
+    projectedHoldYears: inv.projectedHoldYears != null ? Number(inv.projectedHoldYears) : null,
+    cocGrowthRate: inv.cocGrowthRate != null ? Number(inv.cocGrowthRate) : null,
     status: inv.status === "realized" ? "realized" : "active",
     currentNAV: null, // reserved for future
   };

@@ -56,6 +56,14 @@ function fmtDate(iso) {
     year: "numeric",
   });
 }
+function fmtMonthYear(iso) {
+  if (!iso) return "—";
+  const [y, m] = iso.split("-");
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+}
 
 // ── Firebase callable helpers ────────────────────────────────────────────────
 
@@ -74,6 +82,11 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
   const [vintage, setVintage] = useState("");
   const [committed, setCommitted] = useState("");
   const [projectedIRR, setProjectedIRR] = useState("");
+  const [preferredReturn, setPreferredReturn] = useState("");
+  const [projectedCashOnCash, setProjectedCashOnCash] = useState("");
+  const [cocStartDate, setCocStartDate] = useState("");
+  const [projectedHoldYears, setProjectedHoldYears] = useState("");
+  const [cocGrowthRate, setCocGrowthRate] = useState("");
   const [status, setStatus] = useState("active");
   const [error, setError] = useState(null);
 
@@ -85,6 +98,17 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
       setCommitted(data?.committed != null ? formatWithCommas(String(data.committed)) : "");
       setProjectedIRR(
         data?.projectedIRR != null ? String((data.projectedIRR * 100).toFixed(1)) : ""
+      );
+      setPreferredReturn(
+        data?.preferredReturn != null ? String((data.preferredReturn * 100).toFixed(1)) : ""
+      );
+      setProjectedCashOnCash(
+        data?.projectedCashOnCash != null ? String((data.projectedCashOnCash * 100).toFixed(1)) : ""
+      );
+      setCocStartDate(data?.cocStartDate ?? "");
+      setProjectedHoldYears(data?.projectedHoldYears != null ? String(data.projectedHoldYears) : "");
+      setCocGrowthRate(
+        data?.cocGrowthRate != null ? String((data.cocGrowthRate * 100).toFixed(1)) : ""
       );
       setStatus(data?.status ?? "active");
       setError(null);
@@ -102,14 +126,19 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
       return;
     }
     setError(null);
-    const projectedIRRNum = projectedIRR !== "" ? parseFloat(projectedIRR) / 100 : null;
+    const pct = (s) => (s !== "" ? parseFloat(s) / 100 : null);
     onSave({
       ...(isEdit ? { id: data.id } : {}),
       name: name.trim(),
       sponsor: sponsor.trim() || null,
       vintage: vintage ? parseInt(vintage, 10) : null,
       committed: committedNum,
-      projectedIRR: projectedIRRNum,
+      projectedIRR: pct(projectedIRR),
+      preferredReturn: pct(preferredReturn),
+      projectedCashOnCash: pct(projectedCashOnCash),
+      cocStartDate: cocStartDate || null,
+      projectedHoldYears: projectedHoldYears ? parseFloat(projectedHoldYears) : null,
+      cocGrowthRate: pct(cocGrowthRate),
       status,
     });
   }
@@ -175,6 +204,62 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
               value={projectedIRR}
               onChange={(e) => setProjectedIRR(e.target.value)}
               placeholder="e.g. 18"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="inv-pref">Preferred return %</Label>
+              <Input
+                id="inv-pref"
+                type="number"
+                value={preferredReturn}
+                onChange={(e) => setPreferredReturn(e.target.value)}
+                placeholder="e.g. 8"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="inv-coc">Cash-on-cash %</Label>
+              <Input
+                id="inv-coc"
+                type="number"
+                value={projectedCashOnCash}
+                onChange={(e) => setProjectedCashOnCash(e.target.value)}
+                placeholder="e.g. 8"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="inv-coc-start">CoC start date</Label>
+              <Input
+                id="inv-coc-start"
+                type="date"
+                value={cocStartDate}
+                onChange={(e) => setCocStartDate(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="inv-hold">Hold period (yrs)</Label>
+              <Input
+                id="inv-hold"
+                type="number"
+                value={projectedHoldYears}
+                onChange={(e) => setProjectedHoldYears(e.target.value)}
+                placeholder="e.g. 5"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="inv-growth">CoC growth rate % / yr</Label>
+            <Input
+              id="inv-growth"
+              type="number"
+              value={cocGrowthRate}
+              onChange={(e) => setCocGrowthRate(e.target.value)}
+              placeholder="e.g. 2"
             />
           </div>
 
@@ -450,6 +535,46 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
             </span>
           </div>
         </div>
+
+        {/* Projection strip — only when at least one projection field is set */}
+        {(inv.projectedCashOnCash != null || inv.preferredReturn != null || inv.projectedHoldYears != null) && (
+          <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">Cash-on-cash</span>
+              <span className="text-sm font-mono tabular-nums">
+                {inv.projectedCashOnCash != null ? (inv.projectedCashOnCash * 100).toFixed(1) + "%" : "—"}
+              </span>
+              {m.projectedAnnualDistribution != null && (
+                <span className="text-xs text-muted-foreground">
+                  {fmtUSD(m.projectedAnnualDistribution)}/yr
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">Preferred return</span>
+              <span className="text-sm font-mono tabular-nums">
+                {inv.preferredReturn != null ? (inv.preferredReturn * 100).toFixed(1) + "%" : "—"}
+              </span>
+              {inv.cocStartDate && (
+                <span className="text-xs text-muted-foreground">
+                  starts {fmtMonthYear(inv.cocStartDate)}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">Hold period</span>
+              <span className="text-sm font-mono tabular-nums">
+                {inv.projectedHoldYears != null ? inv.projectedHoldYears + " yrs" : "—"}
+              </span>
+              {m.projectedExitYear != null && (
+                <span className="text-xs text-muted-foreground">
+                  exits ~{m.projectedExitYear}
+                  {inv.cocGrowthRate ? ` · +${(inv.cocGrowthRate * 100).toFixed(1)}%/yr` : ""}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Cash flows toggle */}
         <Button

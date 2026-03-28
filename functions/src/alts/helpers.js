@@ -7,7 +7,29 @@ export function enrichPlan(plan) {
     const totalDistributions = cfs.filter(cf => cf.type !== "call").reduce((s, cf) => s + cf.amount, 0);
     const dpi = totalCalled > 0 ? totalDistributions / totalCalled : 0;
     const computedIRR = xirr(toSignedCashFlows(cfs));
-    return { ...inv, metrics: { totalCalled, totalDistributions, dpi, computedIRR } };
+
+    // Projection metrics
+    const projectedAnnualDistribution =
+      inv.committed != null && inv.projectedCashOnCash != null
+        ? inv.committed * inv.projectedCashOnCash
+        : null;
+
+    // Exit year: cocStartDate + holdYears, fallback to vintage + holdYears
+    let projectedExitYear = null;
+    if (inv.projectedHoldYears != null) {
+      const baseYear = inv.cocStartDate
+        ? new Date(inv.cocStartDate).getFullYear()
+        : inv.vintage ?? null;
+      if (baseYear != null) projectedExitYear = baseYear + inv.projectedHoldYears;
+    }
+
+    return {
+      ...inv,
+      metrics: {
+        totalCalled, totalDistributions, dpi, computedIRR,
+        projectedAnnualDistribution, projectedExitYear,
+      },
+    };
   });
 
   const totalCommitted = investments.reduce((s, i) => s + (i.committed ?? 0), 0);
