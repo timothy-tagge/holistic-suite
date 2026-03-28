@@ -84,8 +84,8 @@ export function Home() {
               Welcome — let's get you set up
             </h2>
             <p className="text-muted-foreground text-sm mb-4">
-              Open a module to start building your plan. Each one feeds the
-              dashboard as you add data.
+              Open a module to start building your plan. Each one feeds the dashboard as
+              you add data.
             </p>
             <Button onClick={() => navigate("/overview")} size="sm" className="gap-2">
               Start with Overview <ArrowRight className="h-3.5 w-3.5" />
@@ -101,9 +101,7 @@ export function Home() {
             key={key}
             className={[
               "border transition-shadow",
-              built
-                ? "cursor-pointer hover:shadow-md"
-                : "opacity-60",
+              built ? "cursor-pointer hover:shadow-md" : "opacity-60",
             ].join(" ")}
             onClick={built ? () => navigate(href) : undefined}
             role={built ? "button" : undefined}

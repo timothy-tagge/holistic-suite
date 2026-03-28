@@ -1,25 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { Moon, Sun, LogOut, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const NAV = [
   { key: "overview", label: "Overview", href: "/overview" },
-  { key: "college",  label: "College",  href: "/college" },
-  { key: "alts",     label: "Alts",     href: "/alts" },
-  { key: "equity",   label: "Equity",   href: null },
+  { key: "college", label: "College", href: "/college" },
+  { key: "alts", label: "Alts", href: "/alts" },
+  { key: "equity", label: "Equity", href: null },
   { key: "property", label: "Property", href: null },
 ];
 
 function useAppTheme() {
-  const [isDark, setIsDark] = useState(
-    () => document.documentElement.classList.contains("dark")
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
   );
 
   function applyTheme(dark) {
@@ -37,7 +33,8 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
   const [isDark, toggleDark] = useAppTheme();
 
   // Derive active tab from current route
-  const currentKey = NAV.find((n) => n.href && location.pathname.startsWith(n.href))?.key ?? null;
+  const currentKey =
+    NAV.find((n) => n.href && location.pathname.startsWith(n.href))?.key ?? null;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -97,7 +94,11 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
         <div className="ml-auto flex items-center gap-2">
           {saveStatus && (
             <span className="text-xs text-muted-foreground hidden sm:inline">
-              {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : saveStatus}
+              {saveStatus === "saving"
+                ? "Saving…"
+                : saveStatus === "saved"
+                  ? "Saved"
+                  : saveStatus}
             </span>
           )}
 
@@ -107,7 +108,12 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
             </Button>
           )}
 
-          <Button variant="ghost" size="icon" onClick={toggleDark} aria-label="Toggle dark mode">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleDark}
+            aria-label="Toggle dark mode"
+          >
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
 
@@ -116,7 +122,12 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
               <span className="text-xs text-muted-foreground hidden md:inline truncate max-w-[160px]">
                 {user.email}
               </span>
-              <Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Sign out">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onSignOut}
+                aria-label="Sign out"
+              >
                 <LogOut className="h-4 w-4" />
               </Button>
             </>

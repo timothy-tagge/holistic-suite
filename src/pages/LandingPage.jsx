@@ -1,12 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  TrendingUp,
-  GraduationCap,
-  BarChart3,
-  Layers,
-  ArrowRight,
-} from "lucide-react";
+import { TrendingUp, GraduationCap, BarChart3, Layers, ArrowRight } from "lucide-react";
 
 const PILLARS = [
   {
@@ -63,9 +57,21 @@ const MODULES = [
 ];
 
 const STEPS = [
-  { n: "1", title: "Complete your profile", body: "Age and target retirement year. That's it." },
-  { n: "2", title: "Activate modules", body: "Turn on the planners that match your situation." },
-  { n: "3", title: "See the whole picture", body: "Every module feeds one dashboard. One answer." },
+  {
+    n: "1",
+    title: "Complete your profile",
+    body: "Age and target retirement year. That's it.",
+  },
+  {
+    n: "2",
+    title: "Activate modules",
+    body: "Turn on the planners that match your situation.",
+  },
+  {
+    n: "3",
+    title: "See the whole picture",
+    body: "Every module feeds one dashboard. One answer.",
+  },
 ];
 
 function GoogleIcon() {
@@ -115,11 +121,13 @@ export function LandingPage({ onSignIn }) {
           className="font-heading font-bold tracking-tight text-foreground mb-6"
           style={{ fontSize: "clamp(36px, 6vw, 64px)", lineHeight: 1.1 }}
         >
-          Your financial life,<br />in one place.
+          Your financial life,
+          <br />
+          in one place.
         </h1>
         <p className="text-muted-foreground text-lg mb-10 max-w-xl mx-auto">
-          Alternative investments, college funding, equity holdings — modeled together
-          so you can see the whole picture.
+          Alternative investments, college funding, equity holdings — modeled together so
+          you can see the whole picture.
         </p>
         <SignInButton onSignIn={onSignIn} size="lg" />
       </section>
@@ -127,15 +135,19 @@ export function LandingPage({ onSignIn }) {
       {/* Philosophy */}
       <section className="bg-muted/30 border-y py-20">
         <div className="max-w-4xl mx-auto px-6">
-          <h2 className="font-heading font-bold text-foreground text-center mb-12"
-              style={{ fontSize: "clamp(22px, 3vw, 32px)" }}>
+          <h2
+            className="font-heading font-bold text-foreground text-center mb-12"
+            style={{ fontSize: "clamp(22px, 3vw, 32px)" }}
+          >
             The philosophy
           </h2>
           <div className="grid sm:grid-cols-2 gap-6">
             {PILLARS.map((p) => (
               <Card key={p.title} className="border-border">
                 <CardContent className="pt-6">
-                  <h3 className="font-heading font-semibold text-foreground mb-2">{p.title}</h3>
+                  <h3 className="font-heading font-semibold text-foreground mb-2">
+                    {p.title}
+                  </h3>
                   <p className="text-muted-foreground text-sm">{p.body}</p>
                 </CardContent>
               </Card>
@@ -146,8 +158,10 @@ export function LandingPage({ onSignIn }) {
 
       {/* Module previews */}
       <section className="max-w-4xl mx-auto px-6 py-20">
-        <h2 className="font-heading font-bold text-foreground text-center mb-12"
-            style={{ fontSize: "clamp(22px, 3vw, 32px)" }}>
+        <h2
+          className="font-heading font-bold text-foreground text-center mb-12"
+          style={{ fontSize: "clamp(22px, 3vw, 32px)" }}
+        >
           What's inside
         </h2>
         <div className="grid sm:grid-cols-2 gap-6">
@@ -159,7 +173,9 @@ export function LandingPage({ onSignIn }) {
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-heading font-semibold text-foreground text-sm">{label}</h3>
+                    <h3 className="font-heading font-semibold text-foreground text-sm">
+                      {label}
+                    </h3>
                     <p className="text-primary text-xs font-medium">{tagline}</p>
                   </div>
                 </div>
@@ -173,8 +189,10 @@ export function LandingPage({ onSignIn }) {
       {/* How it works */}
       <section className="bg-muted/30 border-y py-20">
         <div className="max-w-2xl mx-auto px-6 text-center">
-          <h2 className="font-heading font-bold text-foreground mb-12"
-              style={{ fontSize: "clamp(22px, 3vw, 32px)" }}>
+          <h2
+            className="font-heading font-bold text-foreground mb-12"
+            style={{ fontSize: "clamp(22px, 3vw, 32px)" }}
+          >
             How it works
           </h2>
           <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -184,7 +202,9 @@ export function LandingPage({ onSignIn }) {
                   <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm font-heading shrink-0">
                     {step.n}
                   </div>
-                  <h3 className="font-heading font-semibold text-foreground text-sm">{step.title}</h3>
+                  <h3 className="font-heading font-semibold text-foreground text-sm">
+                    {step.title}
+                  </h3>
                   <p className="text-muted-foreground text-xs">{step.body}</p>
                 </div>
                 {i < STEPS.length - 1 && (
@@ -198,11 +218,15 @@ export function LandingPage({ onSignIn }) {
 
       {/* Closing CTA */}
       <section className="max-w-4xl mx-auto px-6 py-24 text-center">
-        <h2 className="font-heading font-bold text-foreground mb-4"
-            style={{ fontSize: "clamp(22px, 3vw, 32px)" }}>
+        <h2
+          className="font-heading font-bold text-foreground mb-4"
+          style={{ fontSize: "clamp(22px, 3vw, 32px)" }}
+        >
           Ready to see the whole picture?
         </h2>
-        <p className="text-muted-foreground mb-8">One login. All your plans. No subscriptions.</p>
+        <p className="text-muted-foreground mb-8">
+          One login. All your plans. No subscriptions.
+        </p>
         <SignInButton onSignIn={onSignIn} size="lg" />
       </section>
 

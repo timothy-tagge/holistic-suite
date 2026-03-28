@@ -20,9 +20,7 @@ export function ComingSoon({ icon: Icon, module, tagline, description, phase }) 
           <Icon className="h-8 w-8 text-primary" />
         </div>
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="font-heading font-semibold text-foreground text-xl">
-            {module}
-          </h2>
+          <h2 className="font-heading font-semibold text-foreground text-xl">{module}</h2>
           <Badge variant="outline" className="text-xs">
             {phase}
           </Badge>

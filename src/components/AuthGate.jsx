@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
-import { useLocation } from "react-router-dom";
 import { auth, googleProvider } from "@/firebase";
 import { AppHeader } from "@/components/AppHeader";
 import { LandingPage } from "@/pages/LandingPage";
 
 export function AuthGate({ children }) {
   const [user, setUser] = useState(undefined); // undefined = loading
-  const location = useLocation();
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u ?? null));
@@ -49,13 +47,8 @@ export function AuthGate({ children }) {
   // Authenticated — wrap children with AppHeader
   return (
     <div className="flex flex-col min-h-svh">
-      <AppHeader
-        user={user}
-        onSignOut={handleSignOut}
-      />
-      <main className="flex-1">
-        {children}
-      </main>
+      <AppHeader user={user} onSignOut={handleSignOut} />
+      <main className="flex-1">{children}</main>
     </div>
   );
 }
