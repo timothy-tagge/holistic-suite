@@ -24,8 +24,8 @@ const PILLARS = [
 const MODULES = [
   {
     icon: BarChart3,
-    key: "overview",
-    label: "Overview",
+    key: "retirement",
+    label: "Retirement",
     tagline: "Retirement income across every sleeve",
     description:
       "Model how your Alpha, Index, Alts, and College residual combine into a single income projection. See the crossover year — when passive income meets your target.",
@@ -59,13 +59,13 @@ const MODULES = [
 const STEPS = [
   {
     n: "1",
-    title: "Complete your profile",
-    body: "Age and target retirement year. That's it.",
+    title: "Build your holistic money view",
+    body: "Pick the areas that matter to you — retirement, college, alts, or all of it.",
   },
   {
     n: "2",
-    title: "Activate modules",
-    body: "Turn on the planners that match your situation.",
+    title: "Answer a few quick questions",
+    body: "Only the details your chosen modules actually need. Nothing more.",
   },
   {
     n: "3",
@@ -121,12 +121,12 @@ export function LandingPage({ onSignIn }) {
           className="font-heading font-bold tracking-tight text-foreground mb-6"
           style={{ fontSize: "clamp(36px, 6vw, 64px)", lineHeight: 1.1 }}
         >
-          Your financial life,
+          Your holistic
           <br />
-          in one place.
+          money view.
         </h1>
         <p className="text-muted-foreground text-lg mb-10 max-w-xl mx-auto">
-          Alternative investments, college funding, equity holdings — modeled together so
+          Alternative investments, college funding, retirement — modeled together so
           you can see the whole picture.
         </p>
         <SignInButton onSignIn={onSignIn} size="lg" />

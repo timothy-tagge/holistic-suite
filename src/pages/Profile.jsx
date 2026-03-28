@@ -9,6 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   BarChart3,
   GraduationCap,
   Layers,
@@ -19,7 +26,7 @@ import {
 } from "lucide-react";
 
 const MODULES = [
-  { key: "overview", label: "Overview", icon: BarChart3, available: true },
+  { key: "retirement", label: "Retirement", icon: BarChart3, available: true },
   { key: "college", label: "College", icon: GraduationCap, available: true },
   { key: "alts", label: "Alts", icon: Layers, available: true },
   { key: "equity", label: "Equity", icon: TrendingUp, available: false },
@@ -30,18 +37,20 @@ export function Profile() {
   const { profile, patchProfile } = useProfile();
 
   const [age, setAge] = useState("");
-  const [retirementYear, setRetirementYear] = useState("");
+  const [retirementAge, setRetirementAge] = useState("");
   const [activeModules, setActiveModules] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null | "saved" | "error"
   const [error, setError] = useState(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   // Sync form from profile when loaded
   useEffect(() => {
     if (profile) {
       setAge(profile.age != null ? String(profile.age) : "");
-      setRetirementYear(
-        profile.targetRetirementYear != null ? String(profile.targetRetirementYear) : ""
+      setRetirementAge(
+        profile.targetRetirementAge != null ? String(profile.targetRetirementAge) : ""
       );
       setActiveModules(profile.activeModules ?? []);
     }
@@ -49,11 +58,12 @@ export function Profile() {
 
   const currentYear = new Date().getFullYear();
   const ageNum = parseInt(age, 10);
-  const yearNum = parseInt(retirementYear, 10);
-  const ageValid = age !== "" && ageNum >= 18 && ageNum <= 100;
-  const yearValid =
-    retirementYear !== "" && yearNum >= currentYear && yearNum <= currentYear + 60;
-  const formValid = ageValid && yearValid;
+  const retirementAgeNum = parseInt(retirementAge, 10);
+  const ageValid = age === "" || (ageNum >= 18 && ageNum <= 100);
+  const retirementAgeValid =
+    retirementAge === "" ||
+    (retirementAgeNum >= 40 && retirementAgeNum <= 80 && retirementAgeNum > ageNum);
+  const formValid = ageValid && retirementAgeValid;
 
   function toggleModule(key) {
     setActiveModules((prev) =>
@@ -68,11 +78,10 @@ export function Profile() {
     setSaveStatus(null);
     try {
       const fn = httpsCallable(functions, "updateProfile");
-      const result = await fn({
-        age: ageNum,
-        targetRetirementYear: yearNum,
-        activeModules,
-      });
+      const payload = { activeModules };
+      if (age !== "") payload.age = ageNum;
+      if (retirementAge !== "") payload.targetRetirementAge = retirementAgeNum;
+      const result = await fn(payload);
       if (result.data.ok) {
         patchProfile(result.data.data.profile);
         setSaveStatus("saved");
@@ -86,6 +95,22 @@ export function Profile() {
       setSaveStatus("error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleResetProfile() {
+    setResetting(true);
+    try {
+      const fn = httpsCallable(functions, "updateProfile");
+      const result = await fn({ age: null, targetRetirementYear: null, activeModules: [] });
+      if (result.data.ok) {
+        patchProfile(result.data.data.profile);
+      }
+    } catch (err) {
+      console.error("Reset failed:", err);
+    } finally {
+      setResetting(false);
+      setResetDialogOpen(false);
     }
   }
 
@@ -160,26 +185,26 @@ export function Profile() {
           <Separator />
 
           <div className="space-y-2">
-            <Label htmlFor="retirementYear">Target retirement year</Label>
+            <Label htmlFor="retirementAge">Target retirement age</Label>
             <Input
-              id="retirementYear"
+              id="retirementAge"
               type="number"
-              min={currentYear}
-              max={currentYear + 60}
-              placeholder={`e.g. ${currentYear + 20}`}
-              value={retirementYear}
-              onChange={(e) => setRetirementYear(e.target.value)}
+              min={40}
+              max={80}
+              placeholder="e.g. 65"
+              value={retirementAge}
+              onChange={(e) => setRetirementAge(e.target.value)}
               className="max-w-[180px]"
             />
-            {retirementYear !== "" && !yearValid && (
+            {retirementAge !== "" && !retirementAgeValid && (
               <p className="text-xs text-destructive">
-                Enter a year between {currentYear} and {currentYear + 60}.
+                Enter an age between 40 and 80, greater than your current age.
               </p>
             )}
-            {ageValid && yearValid && (
+            {ageValid && retirementAgeValid && age !== "" && retirementAge !== "" && (
               <p className="text-xs text-muted-foreground">
-                {yearNum - currentYear} years away — you'll be{" "}
-                {ageNum + (yearNum - currentYear)} at retirement.
+                {retirementAgeNum - ageNum} years away — retirement in{" "}
+                {currentYear + (retirementAgeNum - ageNum)}.
               </p>
             )}
           </div>
@@ -265,6 +290,40 @@ export function Profile() {
           </>
         )}
       </Button>
+
+      {/* Developer tools */}
+      <Separator className="my-10" />
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Developer tools
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Clears age, retirement year, and active modules — returns to onboarding.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => setResetDialogOpen(true)}>
+          Reset profile
+        </Button>
+      </div>
+
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>Reset profile?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will clear your age, retirement year, and active modules, and return you to
+            the onboarding flow. Use this to test the new user experience.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleResetProfile} disabled={resetting}>
+              {resetting ? "Resetting…" : "Reset profile"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

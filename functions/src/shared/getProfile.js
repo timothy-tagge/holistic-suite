@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 
-export const getProfile = onCall(async (request) => {
+export const getProfile = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required.");
   }
@@ -19,7 +19,11 @@ export const getProfile = onCall(async (request) => {
       email: token.email ?? "",
       photoURL: token.picture ?? "",
       age: null,
-      targetRetirementYear: null,
+      targetRetirementAge: null,
+      numberOfKids: null,
+      monthlyCollegeBudget: null,
+      numberOfAltsInvestments: null,
+      totalCommittedCapital: null,
       activeModules: [],
       createdAt: now,
       updatedAt: now,

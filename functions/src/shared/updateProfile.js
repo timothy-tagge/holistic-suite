@@ -1,35 +1,79 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
 
-const VALID_MODULES = ["overview", "college", "alts", "equity", "property"];
+const VALID_MODULES = ["retirement", "college", "alts", "equity", "property"];
 
-export const updateProfile = onCall(async (request) => {
+export const updateProfile = onCall({ cors: true }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Authentication required.");
   }
 
   const { uid } = request.auth;
-  const { age, targetRetirementYear, activeModules } = request.data ?? {};
+  const {
+    age,
+    targetRetirementAge,
+    numberOfKids,
+    monthlyCollegeBudget,
+    numberOfAltsInvestments,
+    totalCommittedCapital,
+    activeModules,
+  } = request.data ?? {};
 
-  // Validate inputs
-  if (age !== undefined) {
+  // Validate inputs (null is allowed to clear a field)
+  if (age !== undefined && age !== null) {
     if (typeof age !== "number" || !Number.isInteger(age) || age < 18 || age > 100) {
+      throw new HttpsError("invalid-argument", "Age must be an integer between 18 and 100.");
+    }
+  }
+
+  if (targetRetirementAge !== undefined && targetRetirementAge !== null) {
+    if (
+      typeof targetRetirementAge !== "number" ||
+      !Number.isInteger(targetRetirementAge) ||
+      targetRetirementAge < 40 ||
+      targetRetirementAge > 80
+    ) {
       throw new HttpsError(
         "invalid-argument",
-        "Age must be an integer between 18 and 100."
+        "Target retirement age must be an integer between 40 and 80."
       );
     }
   }
 
-  if (targetRetirementYear !== undefined) {
-    const currentYear = new Date().getFullYear();
+  if (numberOfKids !== undefined && numberOfKids !== null) {
     if (
-      typeof targetRetirementYear !== "number" ||
-      !Number.isInteger(targetRetirementYear) ||
-      targetRetirementYear < currentYear ||
-      targetRetirementYear > currentYear + 60
+      typeof numberOfKids !== "number" ||
+      !Number.isInteger(numberOfKids) ||
+      numberOfKids < 1 ||
+      numberOfKids > 20
     ) {
-      throw new HttpsError("invalid-argument", "Invalid retirement year.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Number of kids must be an integer between 1 and 20."
+      );
+    }
+  }
+
+  if (monthlyCollegeBudget !== undefined && monthlyCollegeBudget !== null) {
+    if (typeof monthlyCollegeBudget !== "number" || monthlyCollegeBudget < 0) {
+      throw new HttpsError("invalid-argument", "Monthly college budget must be a non-negative number.");
+    }
+  }
+
+  if (numberOfAltsInvestments !== undefined && numberOfAltsInvestments !== null) {
+    if (
+      typeof numberOfAltsInvestments !== "number" ||
+      !Number.isInteger(numberOfAltsInvestments) ||
+      numberOfAltsInvestments < 0 ||
+      numberOfAltsInvestments > 500
+    ) {
+      throw new HttpsError("invalid-argument", "Number of alts investments must be an integer between 0 and 500.");
+    }
+  }
+
+  if (totalCommittedCapital !== undefined && totalCommittedCapital !== null) {
+    if (typeof totalCommittedCapital !== "number" || totalCommittedCapital < 0) {
+      throw new HttpsError("invalid-argument", "Total committed capital must be a non-negative number.");
     }
   }
 
@@ -48,8 +92,11 @@ export const updateProfile = onCall(async (request) => {
 
   const updates = { updatedAt: now };
   if (age !== undefined) updates.age = age;
-  if (targetRetirementYear !== undefined)
-    updates.targetRetirementYear = targetRetirementYear;
+  if (targetRetirementAge !== undefined) updates.targetRetirementAge = targetRetirementAge;
+  if (numberOfKids !== undefined) updates.numberOfKids = numberOfKids;
+  if (monthlyCollegeBudget !== undefined) updates.monthlyCollegeBudget = monthlyCollegeBudget;
+  if (numberOfAltsInvestments !== undefined) updates.numberOfAltsInvestments = numberOfAltsInvestments;
+  if (totalCommittedCapital !== undefined) updates.totalCommittedCapital = totalCommittedCapital;
   if (activeModules !== undefined) updates.activeModules = activeModules;
 
   // Use set+merge so this works even if the doc was never seeded by getProfile
@@ -61,7 +108,11 @@ export const updateProfile = onCall(async (request) => {
       email: token.email ?? "",
       photoURL: token.picture ?? "",
       age: null,
-      targetRetirementYear: null,
+      targetRetirementAge: null,
+      numberOfKids: null,
+      monthlyCollegeBudget: null,
+      numberOfAltsInvestments: null,
+      totalCommittedCapital: null,
       activeModules: [],
       createdAt: now,
       ...updates,

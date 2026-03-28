@@ -19,8 +19,8 @@ import {
 
 const MODULES = [
   {
-    key: "overview",
-    label: "Overview",
+    key: "retirement",
+    label: "Retirement",
     icon: BarChart3,
     description:
       "Retirement income projection across every sleeve. See the crossover year where passive income meets your target.",
@@ -58,27 +58,66 @@ const MODULES = [
   },
 ];
 
-const TOTAL_STEPS = 2;
-
 export function Onboarding() {
   const { patchProfile } = useProfile();
 
   const [step, setStep] = useState(1);
-  const [age, setAge] = useState("");
-  const [retirementYear, setRetirementYear] = useState("");
   const [selectedModules, setSelectedModules] = useState([]);
+
+  // Retirement inputs
+  const [age, setAge] = useState("");
+  const [retirementAge, setRetirementAge] = useState("65");
+
+  // College inputs
+  const [numberOfKids, setNumberOfKids] = useState("");
+  const [monthlyCollegeBudget, setMonthlyCollegeBudget] = useState("");
+
+  // Alts inputs
+  const [numberOfAltsInvestments, setNumberOfAltsInvestments] = useState("");
+  const [totalCommittedCapital, setTotalCommittedCapital] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const currentYear = new Date().getFullYear();
 
-  // ── Step 1 validation ──────────────────────────────────────────────────────
+  const needsRetirement = selectedModules.includes("retirement");
+  const needsCollege = selectedModules.includes("college");
+  const needsAlts = selectedModules.includes("alts");
+  const hasStep2 = needsRetirement || needsCollege || needsAlts;
+
+  // Step 2 validation
   const ageNum = parseInt(age, 10);
-  const yearNum = parseInt(retirementYear, 10);
-  const ageValid = age !== "" && ageNum >= 18 && ageNum <= 100;
-  const yearValid =
-    retirementYear !== "" && yearNum >= currentYear && yearNum <= currentYear + 60;
-  const step1Valid = ageValid && yearValid;
+  const retirementAgeNum = parseInt(retirementAge, 10);
+  const numberOfKidsNum = parseInt(numberOfKids, 10);
+  const monthlyCollegeBudgetNum = parseFloat(monthlyCollegeBudget);
+  const numberOfAltsInvestmentsNum = parseInt(numberOfAltsInvestments, 10);
+  const totalCommittedCapitalNum = parseFloat(totalCommittedCapital);
+
+  const ageValid = !needsRetirement || (age !== "" && ageNum >= 18 && ageNum <= 100);
+  const retirementAgeValid =
+    !needsRetirement ||
+    (retirementAge !== "" &&
+      retirementAgeNum >= 40 &&
+      retirementAgeNum <= 80 &&
+      (!ageValid || retirementAgeNum > ageNum));
+  const numberOfKidsValid =
+    !needsCollege || (numberOfKids !== "" && numberOfKidsNum >= 1 && numberOfKidsNum <= 20);
+  const monthlyCollegeBudgetValid =
+    !needsCollege ||
+    (monthlyCollegeBudget !== "" && monthlyCollegeBudgetNum >= 0);
+  const numberOfAltsInvestmentsValid =
+    !needsAlts ||
+    (numberOfAltsInvestments !== "" && numberOfAltsInvestmentsNum >= 0 && numberOfAltsInvestmentsNum <= 500);
+  const totalCommittedCapitalValid =
+    !needsAlts || (totalCommittedCapital !== "" && totalCommittedCapitalNum >= 0);
+  const step2Valid =
+    ageValid &&
+    retirementAgeValid &&
+    numberOfKidsValid &&
+    monthlyCollegeBudgetValid &&
+    numberOfAltsInvestmentsValid &&
+    totalCommittedCapitalValid;
 
   function toggleModule(key) {
     setSelectedModules((prev) =>
@@ -86,19 +125,36 @@ export function Onboarding() {
     );
   }
 
+  function handleContinue() {
+    if (hasStep2) {
+      setStep(2);
+    } else {
+      handleFinish([]);
+    }
+  }
+
   async function handleFinish() {
     setSaving(true);
     setError(null);
     try {
       const fn = httpsCallable(functions, "updateProfile");
-      const result = await fn({
-        age: ageNum,
-        targetRetirementYear: yearNum,
-        activeModules: selectedModules,
-      });
+      const payload = { activeModules: selectedModules };
+      if (needsRetirement) {
+        payload.age = ageNum;
+        payload.targetRetirementAge = retirementAgeNum;
+      }
+      if (needsCollege) {
+        payload.numberOfKids = numberOfKidsNum;
+        payload.monthlyCollegeBudget = monthlyCollegeBudgetNum;
+      }
+      if (needsAlts) {
+        payload.numberOfAltsInvestments = numberOfAltsInvestmentsNum;
+        payload.totalCommittedCapital = totalCommittedCapitalNum;
+      }
+      const result = await fn(payload);
       if (result.data.ok) {
         patchProfile(result.data.data.profile);
-        // isOnboarded will flip true → AppRoutes redirects away from /onboarding automatically
+        // isOnboarded flips true → AppRoutes redirects automatically
       } else {
         setError(result.data.error?.message ?? "Something went wrong.");
       }
@@ -108,6 +164,8 @@ export function Onboarding() {
       setSaving(false);
     }
   }
+
+  const totalSteps = hasStep2 ? 2 : 1;
 
   return (
     <div className="min-h-svh bg-background flex flex-col">
@@ -122,103 +180,28 @@ export function Onboarding() {
       <div className="w-full h-1 bg-muted">
         <div
           className="h-1 bg-primary transition-all duration-300"
-          style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
+          style={{ width: `${(step / totalSteps) * 100}%` }}
         />
       </div>
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-lg">
-          {/* Step indicator */}
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-            Step {step} of {TOTAL_STEPS}
+            Step {step} of {totalSteps}
           </p>
 
-          {/* ── Step 1: Personal info ─────────────────────────────────────── */}
+          {/* ── Step 1: Module selection ───────────────────────────────────── */}
           {step === 1 && (
             <div>
               <h1
                 className="font-heading font-bold tracking-tight text-foreground mb-2"
                 style={{ fontSize: "clamp(24px, 4vw, 36px)", lineHeight: 1.15 }}
               >
-                Let's build your picture
+                What's part of your holistic money view?
               </h1>
-              <p className="text-muted-foreground text-sm mb-8">
-                Two numbers are all we need to start modeling your financial future.
-              </p>
-
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="age">Your current age</Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    min={18}
-                    max={100}
-                    placeholder="e.g. 42"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    className="text-lg h-12"
-                    autoFocus
-                  />
-                  {age !== "" && !ageValid && (
-                    <p className="text-xs text-destructive">
-                      Please enter an age between 18 and 100.
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="retirementYear">Target retirement year</Label>
-                  <Input
-                    id="retirementYear"
-                    type="number"
-                    min={currentYear}
-                    max={currentYear + 60}
-                    placeholder={`e.g. ${currentYear + 20}`}
-                    value={retirementYear}
-                    onChange={(e) => setRetirementYear(e.target.value)}
-                    className="text-lg h-12"
-                  />
-                  {retirementYear !== "" && !yearValid && (
-                    <p className="text-xs text-destructive">
-                      Please enter a year between {currentYear} and {currentYear + 60}.
-                    </p>
-                  )}
-                  {ageValid && yearValid && (
-                    <p className="text-xs text-muted-foreground">
-                      That's{" "}
-                      {yearNum - currentYear + (currentYear - (currentYear - ageNum))}{" "}
-                      years away — you'll be {ageNum + (yearNum - currentYear)} at
-                      retirement.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                className="w-full mt-8 gap-2"
-                size="lg"
-                disabled={!step1Valid}
-                onClick={() => setStep(2)}
-              >
-                Continue <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* ── Step 2: Module selection ──────────────────────────────────── */}
-          {step === 2 && (
-            <div>
-              <h1
-                className="font-heading font-bold tracking-tight text-foreground mb-2"
-                style={{ fontSize: "clamp(24px, 4vw, 36px)", lineHeight: 1.15 }}
-              >
-                What are you planning for?
-              </h1>
-              <p className="text-muted-foreground text-sm mb-8">
-                Choose the modules that apply to your situation. You can add or remove
-                them any time.
+              <p className="text-muted-foreground text-sm mb-16">
+                Pick what matters to you. Each piece sharpens your picture of money.
               </p>
 
               <div className="space-y-3">
@@ -283,6 +266,159 @@ export function Onboarding() {
                 })}
               </div>
 
+              <Button
+                className="w-full mt-8 gap-2"
+                size="lg"
+                disabled={saving}
+                onClick={handleContinue}
+              >
+                {saving
+                  ? "Saving…"
+                  : selectedModules.length === 0
+                    ? "Skip for now"
+                    : "Continue"}
+                {!saving && <ArrowRight className="h-4 w-4" />}
+              </Button>
+            </div>
+          )}
+
+          {/* ── Step 2: Module-driven questions ───────────────────────────── */}
+          {step === 2 && (
+            <div>
+              <h1
+                className="font-heading font-bold tracking-tight text-foreground mb-2"
+                style={{ fontSize: "clamp(24px, 4vw, 36px)", lineHeight: 1.15 }}
+              >
+                A few quick details
+              </h1>
+              <p className="text-muted-foreground text-sm mb-8">
+                These drive the projections for the modules you selected.
+              </p>
+
+              <div className="space-y-6">
+                {needsRetirement && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="age">Your current age</Label>
+                      <Input
+                        id="age"
+                        type="number"
+                        min={18}
+                        max={100}
+                        placeholder="e.g. 42"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="text-lg h-12 max-w-[180px]"
+                        autoFocus
+                      />
+                      {age !== "" && !ageValid && (
+                        <p className="text-xs text-destructive">Enter an age between 18 and 100.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="retirementAge">Target retirement age</Label>
+                      <Input
+                        id="retirementAge"
+                        type="number"
+                        min={40}
+                        max={80}
+                        value={retirementAge}
+                        onChange={(e) => setRetirementAge(e.target.value)}
+                        className="text-lg h-12 max-w-[180px]"
+                      />
+                      {retirementAge !== "" && !retirementAgeValid && (
+                        <p className="text-xs text-destructive">
+                          Enter an age between 40 and 80, greater than your current age.
+                        </p>
+                      )}
+                      {ageValid && retirementAgeValid && (
+                        <p className="text-xs text-muted-foreground">
+                          {retirementAgeNum - ageNum} years away — retirement in{" "}
+                          {currentYear + (retirementAgeNum - ageNum)}.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {needsCollege && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="numberOfKids">Number of children to plan for</Label>
+                      <Input
+                        id="numberOfKids"
+                        type="number"
+                        min={1}
+                        max={20}
+                        placeholder="e.g. 2"
+                        value={numberOfKids}
+                        onChange={(e) => setNumberOfKids(e.target.value)}
+                        className="text-lg h-12 max-w-[180px]"
+                        autoFocus={!needsRetirement}
+                      />
+                      {numberOfKids !== "" && !numberOfKidsValid && (
+                        <p className="text-xs text-destructive">Enter a number between 1 and 20.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="monthlyCollegeBudget">Monthly college savings budget ($)</Label>
+                      <Input
+                        id="monthlyCollegeBudget"
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 500"
+                        value={monthlyCollegeBudget}
+                        onChange={(e) => setMonthlyCollegeBudget(e.target.value)}
+                        className="text-lg h-12 max-w-[180px]"
+                      />
+                      {monthlyCollegeBudget !== "" && !monthlyCollegeBudgetValid && (
+                        <p className="text-xs text-destructive">Enter a positive amount.</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {needsAlts && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="numberOfAltsInvestments">Number of alternative investments</Label>
+                      <Input
+                        id="numberOfAltsInvestments"
+                        type="number"
+                        min={0}
+                        max={500}
+                        placeholder="e.g. 4"
+                        value={numberOfAltsInvestments}
+                        onChange={(e) => setNumberOfAltsInvestments(e.target.value)}
+                        className="text-lg h-12 max-w-[180px]"
+                        autoFocus={!needsRetirement && !needsCollege}
+                      />
+                      {numberOfAltsInvestments !== "" && !numberOfAltsInvestmentsValid && (
+                        <p className="text-xs text-destructive">Enter a number between 0 and 500.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="totalCommittedCapital">Approximate total committed capital ($)</Label>
+                      <Input
+                        id="totalCommittedCapital"
+                        type="number"
+                        min={0}
+                        placeholder="e.g. 250000"
+                        value={totalCommittedCapital}
+                        onChange={(e) => setTotalCommittedCapital(e.target.value)}
+                        className="text-lg h-12 max-w-[180px]"
+                      />
+                      {totalCommittedCapital !== "" && !totalCommittedCapitalValid && (
+                        <p className="text-xs text-destructive">Enter a positive amount.</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
               {error && <p className="text-xs text-destructive mt-4">{error}</p>}
 
               <div className="flex gap-3 mt-8">
@@ -299,13 +435,9 @@ export function Onboarding() {
                   size="lg"
                   className="flex-1 gap-2"
                   onClick={handleFinish}
-                  disabled={saving}
+                  disabled={saving || !step2Valid}
                 >
-                  {saving
-                    ? "Saving…"
-                    : selectedModules.length === 0
-                      ? "Skip for now"
-                      : "Let's go"}
+                  {saving ? "Saving…" : "Let's go"}
                   {!saving && <ArrowRight className="h-4 w-4" />}
                 </Button>
               </div>

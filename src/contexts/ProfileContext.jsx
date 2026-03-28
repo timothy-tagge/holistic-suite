@@ -40,8 +40,7 @@ export function ProfileProvider({ children, user }) {
     setProfile((prev) => (prev ? { ...prev, ...updates } : updates));
   }
 
-  const isOnboarded =
-    profile !== null && profile.age !== null && profile.targetRetirementYear !== null;
+  const isOnboarded = profile !== null && (profile.activeModules?.length ?? 0) > 0;
 
   return (
     <ProfileContext.Provider
