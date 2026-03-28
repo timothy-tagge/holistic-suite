@@ -13,9 +13,6 @@ import {
   Layers,
   TrendingUp,
   ArrowRight,
-  AlertTriangle,
-  CircleCheck,
-  CircleAlert,
 } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -43,28 +40,6 @@ function MetricRow({ label, value, sub, valueClass }) {
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
     </div>
-  );
-}
-
-function ConfidenceBadge({ successRate }) {
-  if (successRate == null) return null;
-  const pct = Math.round(successRate * 100);
-  if (pct >= 90)
-    return (
-      <Badge variant="outline" className="gap-1 text-xs text-green-700 dark:text-green-400 border-green-500/30">
-        <CircleCheck className="h-3 w-3" /> {pct}% funded
-      </Badge>
-    );
-  if (pct >= 70)
-    return (
-      <Badge variant="outline" className="gap-1 text-xs text-amber-700 dark:text-amber-400 border-amber-500/30">
-        <CircleAlert className="h-3 w-3" /> {pct}% funded
-      </Badge>
-    );
-  return (
-    <Badge variant="outline" className="gap-1 text-xs text-destructive border-destructive/30">
-      <AlertTriangle className="h-3 w-3" /> {pct}% funded
-    </Badge>
   );
 }
 
@@ -109,7 +84,6 @@ function CollegeSection({ initialized }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {m && <ConfidenceBadge successRate={m.successRate} />}
             <Button variant="ghost" size="sm" className="gap-1 text-xs h-7" asChild>
               <Link to="/college">
                 Details <ArrowRight className="h-3 w-3" />
