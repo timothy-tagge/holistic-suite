@@ -29,9 +29,9 @@ function fmtPct(rate) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function MetricRow({ label, value, sub, valueClass }) {
+function MetricRow({ label, value, sub, valueClass, rowClass }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3">
+    <div className={["flex items-start justify-between gap-4 py-3 px-3 -mx-3 rounded-md", rowClass].filter(Boolean).join(" ")}>
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="text-right">
         <span className={["text-sm font-medium font-mono tabular-nums", valueClass].filter(Boolean).join(" ")}>
@@ -174,6 +174,11 @@ function CollegeSection({ initialized }) {
                   m.successRate >= 0.9
                     ? "text-green-700 dark:text-green-400"
                     : "text-amber-700 dark:text-amber-400"
+                }
+                rowClass={
+                  m.successRate < 0.9
+                    ? "bg-amber-500/10 border border-amber-500/20"
+                    : undefined
                 }
               />
             )}
