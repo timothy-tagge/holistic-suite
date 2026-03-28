@@ -63,7 +63,7 @@ const TOTAL_STEPS = 2;
 
 export function Onboarding() {
   const navigate = useNavigate();
-  const { patchProfile } = useProfile();
+  const { reloadProfile } = useProfile();
 
   const [step, setStep] = useState(1);
   const [age, setAge] = useState("");
@@ -99,7 +99,7 @@ export function Onboarding() {
         activeModules: selectedModules,
       });
       if (result.data.ok) {
-        patchProfile(result.data.data.profile);
+        await reloadProfile();
         navigate("/", { replace: true });
       } else {
         setError(result.data.error?.message ?? "Something went wrong.");
