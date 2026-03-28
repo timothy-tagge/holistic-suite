@@ -3,6 +3,7 @@ import { useProfile } from "@/contexts/useProfile";
 import { Home } from "@/pages/Home";
 import { Onboarding } from "@/pages/Onboarding";
 import { Overview } from "@/pages/Overview";
+import { Retirement } from "@/pages/Retirement";
 import { College } from "@/pages/College";
 import { Alts } from "@/pages/Alts";
 import { Equity } from "@/pages/Equity";
@@ -54,6 +55,7 @@ function AppRoutes() {
         }
       />
       <Route path="/overview" element={<Overview />} />
+      <Route path="/retirement" element={<Retirement />} />
       <Route path="/college" element={<College />} />
       <Route path="/alts" element={<Alts />} />
       <Route path="/equity" element={<Equity />} />
