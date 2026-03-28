@@ -173,9 +173,7 @@ function CollegeSection({ initialized }) {
                 valueClass={
                   m.successRate >= 0.9
                     ? "text-green-700 dark:text-green-400"
-                    : m.successRate >= 0.7
-                    ? "text-amber-700 dark:text-amber-400"
-                    : "text-destructive"
+                    : "text-amber-700 dark:text-amber-400"
                 }
               />
             )}
