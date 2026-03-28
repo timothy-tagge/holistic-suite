@@ -139,6 +139,8 @@ export const collegeGetSummary = onCall({ cors: true }, async (request) => {
     });
   }
 
+  const mc = plan.monteCarloResult ?? null;
+
   return {
     ok: true,
     data: {
@@ -158,6 +160,8 @@ export const collegeGetSummary = onCall({ cors: true }, async (request) => {
           monthlyLoanPayment: p.monthlyLoanPayment,
           firstCollegeYear: p.firstCollegeYear,
           lastGraduationYear: p.lastGraduationYear,
+          successRate: mc?.successRate ?? null,
+          extraMonthly: mc?.extraMonthly ?? null,
         },
         actionItems,
         lastUpdated: plan.updatedAt,
