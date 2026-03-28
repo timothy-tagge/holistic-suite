@@ -17,6 +17,7 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
     numberOfAltsInvestments,
     totalCommittedCapital,
     activeModules,
+    initializedModules,
   } = request.data ?? {};
 
   // Validate inputs (null is allowed to clear a field)
@@ -86,6 +87,15 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
     }
   }
 
+  if (initializedModules !== undefined) {
+    if (
+      !Array.isArray(initializedModules) ||
+      !initializedModules.every((m) => VALID_MODULES.includes(m))
+    ) {
+      throw new HttpsError("invalid-argument", "Invalid initialized modules.");
+    }
+  }
+
   const db = getFirestore();
   const ref = db.collection("profile").doc(uid);
   const now = new Date().toISOString();
@@ -98,6 +108,7 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
   if (numberOfAltsInvestments !== undefined) updates.numberOfAltsInvestments = numberOfAltsInvestments;
   if (totalCommittedCapital !== undefined) updates.totalCommittedCapital = totalCommittedCapital;
   if (activeModules !== undefined) updates.activeModules = activeModules;
+  if (initializedModules !== undefined) updates.initializedModules = initializedModules;
 
   // Use set+merge so this works even if the doc was never seeded by getProfile
   const existing = await ref.get();
@@ -114,6 +125,7 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
       numberOfAltsInvestments: null,
       totalCommittedCapital: null,
       activeModules: [],
+      initializedModules: [],
       createdAt: now,
       ...updates,
     });

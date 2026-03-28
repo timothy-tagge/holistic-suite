@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useProfile } from "@/contexts/useProfile";
@@ -23,6 +24,7 @@ import {
   Building2,
   Check,
   Save,
+  X,
 } from "lucide-react";
 
 const MODULES = [
@@ -35,6 +37,7 @@ const MODULES = [
 
 export function Profile() {
   const { profile, patchProfile } = useProfile();
+  const navigate = useNavigate();
 
   const [age, setAge] = useState("");
   const [retirementAge, setRetirementAge] = useState("");
@@ -42,6 +45,24 @@ export function Profile() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null | "saved" | "error"
   const [error, setError] = useState(null);
+
+  const isDirty =
+    profile != null &&
+    (String(profile.age ?? "") !== age ||
+      String(profile.targetRetirementAge ?? "") !== retirementAge ||
+      JSON.stringify([...(profile.activeModules ?? [])].sort()) !==
+        JSON.stringify([...activeModules].sort()));
+
+  function resetForm() {
+    if (!profile) return;
+    setAge(profile.age != null ? String(profile.age) : "");
+    setRetirementAge(
+      profile.targetRetirementAge != null ? String(profile.targetRetirementAge) : ""
+    );
+    setActiveModules(profile.activeModules ?? []);
+    setError(null);
+    setSaveStatus(null);
+  }
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -102,7 +123,7 @@ export function Profile() {
     setResetting(true);
     try {
       const fn = httpsCallable(functions, "updateProfile");
-      const result = await fn({ age: null, targetRetirementYear: null, activeModules: [] });
+      const result = await fn({ age: null, targetRetirementAge: null, activeModules: [], initializedModules: [] });
       if (result.data.ok) {
         patchProfile(result.data.data.profile);
       }
@@ -117,9 +138,18 @@ export function Profile() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 md:px-6">
       {/* Page title */}
-      <div className="mb-8">
+      <div className="relative mb-8">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-0 right-0"
+          onClick={() => navigate(-1)}
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </Button>
         <h1
-          className="font-heading font-bold tracking-tight text-foreground"
+          className="font-heading font-bold tracking-tight text-foreground pr-10"
           style={{ fontSize: "clamp(26px, 4vw, 38px)", lineHeight: 1.15 }}
         >
           Profile
@@ -272,24 +302,31 @@ export function Profile() {
 
       {error && <p className="text-xs text-destructive mb-4">{error}</p>}
 
-      <Button
-        size="lg"
-        className="gap-2"
-        onClick={handleSave}
-        disabled={!formValid || saving}
-      >
-        {saving ? (
-          "Saving…"
-        ) : saveStatus === "saved" ? (
-          <>
-            <Check className="h-4 w-4" /> Saved
-          </>
-        ) : (
-          <>
-            <Save className="h-4 w-4" /> Save changes
-          </>
+      <div className="flex items-center gap-3">
+        <Button
+          size="lg"
+          className="gap-2"
+          onClick={handleSave}
+          disabled={!formValid || saving || !isDirty}
+        >
+          {saving ? (
+            "Saving…"
+          ) : saveStatus === "saved" ? (
+            <>
+              <Check className="h-4 w-4" /> Saved
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" /> Save changes
+            </>
+          )}
+        </Button>
+        {isDirty && (
+          <Button variant="ghost" size="lg" onClick={resetForm} disabled={saving}>
+            Cancel
+          </Button>
         )}
-      </Button>
+      </div>
 
       {/* Developer tools */}
       <Separator className="my-10" />

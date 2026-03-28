@@ -10,7 +10,7 @@ import { Property } from "@/pages/Property";
 import { Profile } from "@/pages/Profile";
 
 function AppRoutes() {
-  const { isOnboarded, profileLoading } = useProfile();
+  const { isOnboarded, profileLoading, nextSetupModule } = useProfile();
 
   if (profileLoading) {
     return (
@@ -43,7 +43,16 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route
+        path="/"
+        element={
+          nextSetupModule ? (
+            <Navigate to={`/${nextSetupModule}`} replace />
+          ) : (
+            <Home />
+          )
+        }
+      />
       <Route path="/overview" element={<Overview />} />
       <Route path="/college" element={<College />} />
       <Route path="/alts" element={<Alts />} />

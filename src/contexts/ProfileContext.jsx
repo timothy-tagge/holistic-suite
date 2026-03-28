@@ -42,6 +42,13 @@ export function ProfileProvider({ children, user }) {
 
   const isOnboarded = profile !== null && (profile.activeModules?.length ?? 0) > 0;
 
+  // Modules that have a setup wizard — drives the post-onboarding chain
+  const MODULES_WITH_SETUP = ["college"];
+  const nextSetupModule =
+    (profile?.activeModules ?? [])
+      .filter((m) => MODULES_WITH_SETUP.includes(m))
+      .find((m) => !(profile?.initializedModules ?? []).includes(m)) ?? null;
+
   return (
     <ProfileContext.Provider
       value={{
@@ -50,6 +57,7 @@ export function ProfileProvider({ children, user }) {
         profileError,
         patchProfile,
         isOnboarded,
+        nextSetupModule,
         reloadProfile: loadProfile,
       }}
     >

@@ -2,8 +2,10 @@ import { useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useProfile } from "@/contexts/useProfile";
+import { parseFormatted } from "@/lib/formatNumber";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +72,6 @@ export function Onboarding() {
 
   // College inputs
   const [numberOfKids, setNumberOfKids] = useState("");
-  const [monthlyCollegeBudget, setMonthlyCollegeBudget] = useState("");
 
   // Alts inputs
   const [numberOfAltsInvestments, setNumberOfAltsInvestments] = useState("");
@@ -90,9 +91,8 @@ export function Onboarding() {
   const ageNum = parseInt(age, 10);
   const retirementAgeNum = parseInt(retirementAge, 10);
   const numberOfKidsNum = parseInt(numberOfKids, 10);
-  const monthlyCollegeBudgetNum = parseFloat(monthlyCollegeBudget);
   const numberOfAltsInvestmentsNum = parseInt(numberOfAltsInvestments, 10);
-  const totalCommittedCapitalNum = parseFloat(totalCommittedCapital);
+  const totalCommittedCapitalNum = parseFormatted(totalCommittedCapital);
 
   const ageValid = !needsRetirement || (age !== "" && ageNum >= 18 && ageNum <= 100);
   const retirementAgeValid =
@@ -103,9 +103,6 @@ export function Onboarding() {
       (!ageValid || retirementAgeNum > ageNum));
   const numberOfKidsValid =
     !needsCollege || (numberOfKids !== "" && numberOfKidsNum >= 1 && numberOfKidsNum <= 20);
-  const monthlyCollegeBudgetValid =
-    !needsCollege ||
-    (monthlyCollegeBudget !== "" && monthlyCollegeBudgetNum >= 0);
   const numberOfAltsInvestmentsValid =
     !needsAlts ||
     (numberOfAltsInvestments !== "" && numberOfAltsInvestmentsNum >= 0 && numberOfAltsInvestmentsNum <= 500);
@@ -115,7 +112,6 @@ export function Onboarding() {
     ageValid &&
     retirementAgeValid &&
     numberOfKidsValid &&
-    monthlyCollegeBudgetValid &&
     numberOfAltsInvestmentsValid &&
     totalCommittedCapitalValid;
 
@@ -145,7 +141,6 @@ export function Onboarding() {
       }
       if (needsCollege) {
         payload.numberOfKids = numberOfKidsNum;
-        payload.monthlyCollegeBudget = monthlyCollegeBudgetNum;
       }
       if (needsAlts) {
         payload.numberOfAltsInvestments = numberOfAltsInvestmentsNum;
@@ -362,21 +357,6 @@ export function Onboarding() {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="monthlyCollegeBudget">Monthly college savings budget ($)</Label>
-                      <Input
-                        id="monthlyCollegeBudget"
-                        type="number"
-                        min={0}
-                        placeholder="e.g. 500"
-                        value={monthlyCollegeBudget}
-                        onChange={(e) => setMonthlyCollegeBudget(e.target.value)}
-                        className="text-lg h-12 max-w-[180px]"
-                      />
-                      {monthlyCollegeBudget !== "" && !monthlyCollegeBudgetValid && (
-                        <p className="text-xs text-destructive">Enter a positive amount.</p>
-                      )}
-                    </div>
                   </>
                 )}
 
@@ -401,16 +381,17 @@ export function Onboarding() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="totalCommittedCapital">Approximate total committed capital ($)</Label>
-                      <Input
-                        id="totalCommittedCapital"
-                        type="number"
-                        min={0}
-                        placeholder="e.g. 250000"
-                        value={totalCommittedCapital}
-                        onChange={(e) => setTotalCommittedCapital(e.target.value)}
-                        className="text-lg h-12 max-w-[180px]"
-                      />
+                      <Label htmlFor="totalCommittedCapital">Approximate total committed capital</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-sm">$</span>
+                        <CurrencyInput
+                          id="totalCommittedCapital"
+                          placeholder="e.g. 250,000"
+                          value={totalCommittedCapital}
+                          onChange={setTotalCommittedCapital}
+                          className="text-lg h-12 max-w-[180px]"
+                        />
+                      </div>
                       {totalCommittedCapital !== "" && !totalCommittedCapitalValid && (
                         <p className="text-xs text-destructive">Enter a positive amount.</p>
                       )}

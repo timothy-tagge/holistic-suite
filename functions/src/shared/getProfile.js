@@ -25,6 +25,7 @@ export const getProfile = onCall({ cors: true }, async (request) => {
       numberOfAltsInvestments: null,
       totalCommittedCapital: null,
       activeModules: [],
+      initializedModules: [],
       createdAt: now,
       updatedAt: now,
     };

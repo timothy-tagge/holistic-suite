@@ -112,6 +112,8 @@ functions/
   shared/
     getProfile          → read profile/{uid}
     updateProfile       → write profile/{uid}
+    monteCarlo.js       → statistical utilities: randomNormal, percentile, computeYearlyBands
+                          (not an HTTP function — imported by module runMonteCarlo files)
     getActionItems      → compute + return all action items for active plans
     getAuditLog         → return audit trail for a resource
     shareResource       → grant access (writes to profile/{uid}/shares)
@@ -126,17 +128,18 @@ functions/
     aggregateModules    → call each active module's getSummary, return combined
 
   college/
-    getPlans            → list all college plans for user
+    setup               → create/overwrite plan (wizard); runs Monte Carlo; marks college as initialized
+    getPlan             → return active college plan document; lazy-backfills monteCarloResult if missing
+    updateSavings       → update savings, monthly contrib, annual return, inflationRate, lump sums, loans; re-runs MC
+    updateChildren      → update children array (name, birthYear, costTier, annualCostBase); re-runs MC
+    getSummary          → inter-module contract: netWorthContribution, metrics, actionItems (for dashboard)
+
+    (planned — not yet built)
+    getPlans            → list all plans for user
     createPlan          → create new plan (or duplicate existing)
-    updatePlan          → write plan fields
     deletePlan          → soft-delete a plan
     setActivePlan       → mark a plan as active
-    computeProjection   → run the projection engine, return year-by-year rows
-    getSummary          → funded %, residual, next tuition year (for dashboard)
-    addComment          → add a comment to a plan
-    editComment         → edit own comment
-    deleteComment       → delete own comment
-    getComments         → return comment thread
+    addComment / editComment / deleteComment / getComments → comment thread
 
   alts/
     getPlans            → list all alt plans
@@ -230,14 +233,29 @@ profile/{uid}/audit/{entryId}
   timestamp: isoString
   ip: string
 
-college-plans/{planId}
+college-plans/{uid}                            ← keyed by ownerUid (one active plan per user now)
   ownerUid, name, isActive, createdAt, updatedAt
-  monthlyContrib, children[], returnRate, inflRate,
-  insuranceAmt, insuranceYear, includeInsurance,
-  lumpSums[], loanRate, loanRepaymentYears
-  computed: { trueResidual, loanClearedYear }   ← written by computeProjection
+  children[]: {
+    id, name, birthYear,
+    costTier,            ← public-in-state | public-out-of-state | private | elite
+    annualCostBase?      ← optional override in today's dollars; if absent, COST_TIER_MAP[costTier] is used
+  }
+  totalSavings: number
+  monthlyContribution: number
+  annualReturn: number                            ← decimal (e.g. 0.06 = 6%)
+  inflationRate: number                           ← decimal (e.g. 0.03 = 3%); default 3% if absent
+  lumpSums[]: { year, amount, label? }
+  loans: { totalAmount, rate, termYears } | null
+  monteCarloResult: {                             ← cached after every write; computed server-side
+    yearlyBands[]: { year, p10, p25, p50, p75, p90, bandBase, bandWidth }
+    successRate: number                           ← fraction 0–1
+    numSims: number
+    stdDev: number
+    extraMonthly: number                          ← extra $/mo to reach 90% success; 0 if already ≥90%
+    computedAt: isoTimestamp
+  }
 
-college-plans/{planId}/comments/{commentId}
+college-plans/{planId}/comments/{commentId}      ← planned, not yet built
   authorUid, authorEmail, authorName
   text, createdAt, editedAt?
   deletedAt?                   ← soft delete
@@ -381,6 +399,73 @@ error state from a shared hook.
 
 ---
 
+## UI Patterns
+
+### Pencil icon placement
+
+Use `<Pencil className="h-4 w-4" />` inside a `variant="ghost" size="icon"` Button for edit actions.
+Never use a text "Edit" button for section-level editing when a pencil icon fits.
+
+Placement rules:
+- **Top-right of a section card** — when clicking opens/edits the entire section
+- **Inline next to a specific field** — when clicking edits only that one field
+
+```jsx
+// Section-level: top-right of the card header row
+<div className="flex items-start justify-between">
+  <div>...section content...</div>
+  <Button variant="ghost" size="icon" onClick={openEdit} aria-label="Edit section">
+    <Pencil className="h-4 w-4" />
+  </Button>
+</div>
+
+// Field-level: inline in the field row
+<div className="flex items-center gap-2">
+  <span>{fieldValue}</span>
+  <Button variant="ghost" size="icon" onClick={editField} aria-label="Edit field">
+    <Pencil className="h-4 w-4" />
+  </Button>
+</div>
+```
+
+### Tab/toggle attention indicator
+
+When an inactive tab or toggle panel contains actionable information the user should see
+(e.g. probability of success < 90%, an unread alert, a required action), draw attention
+using one of two approaches depending on how prominent the signal needs to be:
+
+**Subtle — amber dot** (for soft suggestions or unread state):
+```jsx
+<button ...>
+  Probability
+  {hasAction && isInactive && (
+    <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500 shrink-0" />
+  )}
+</button>
+```
+
+**Prominent — amber styled button with value** (for metric-driven warnings like low success rate):
+```jsx
+<button
+  className={
+    showAmberWarning && chartView !== "probability"
+      ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded-md px-3 py-1 text-sm font-medium gap-1.5"
+      : "... normal tab styles ..."
+  }
+>
+  Probability{showAmberWarning && chartView !== "probability" && ` · ${pct}%`}
+</button>
+```
+
+Rules:
+- Never show the indicator on the currently active tab
+- Remove the indicator once the user clicks that tab **or** the condition clears
+- Use the subtle dot for general "something to see here" signals
+- Use the prominent amber button when the value itself (e.g. 67%) communicates urgency
+- Amber for warnings/suggestions. Red (`bg-destructive`) only for blocking conditions.
+
+---
+
 ## Action Item System
 
 Action items are computed server-side by `getActionItems`, which calls each active
@@ -445,6 +530,14 @@ Seeded automatically from Google sign-in on first login. Always editable.
 Profile is the single source of truth for user identity and module preferences.
 No duplication of profile data in module-level documents.
 
+### Profile page UX
+
+- **X close button** — top-right of the page header (`absolute top-0 right-0`); calls `navigate(-1)`
+- **Dirty tracking** — form compares live state to saved `profile` values; `isDirty` is true when any field differs
+- **Save button** — disabled when form is invalid or not dirty; shows "Saved" with checkmark for 3 seconds after success
+- **Cancel button** — shown only when `isDirty`; resets all fields to current profile values without saving
+- Both the Save and Cancel buttons are disabled while a save is in progress
+
 ---
 
 ## Onboarding
@@ -491,6 +584,16 @@ landing point for a brand-new user.
 The dashboard's "new user" state (currently gated on `age` and `targetRetirementYear`) is
 now gated on `activeModules.length === 0`. A user with modules but no module-specific data
 sees the module's own empty state, not a dashboard checklist.
+
+### Multi-module setup banner
+
+When a user has active modules that have not yet been initialized (i.e., no plan created),
+the module page shows a banner listing **all** uninitialized modules — not just one.
+
+- List is computed as `activeModules.filter(key => !profile.initializedModules?.includes(key))`
+- Banner formats the list naturally: "Retirement", "Retirement and College", "Retirement, College and Alts"
+- CTA navigates to the first uninitialized module: "Set up [first module]"
+- Banner disappears once all listed modules are initialized
 
 ---
 
@@ -547,7 +650,7 @@ Single authoritative section — no split between "Shared Infrastructure" and "M
 **Projection math (to be specced in detail before Phase 2 build):**
 - Each sleeve compounds annually at its configured rate
 - Income = portfolio value × distribution rate (configurable per sleeve)
-- College residual: live read from `college-plans/{activePlanId}.computed.trueResidual`
+- College residual: read from `collegeGetSummary` → `netWorthContribution` (finalBalance − loanAmount)
 - Alts: reads from active alts plan's `getSummary.projectedAnnualIncome`
 - Dividends: reads from active dividends plan's `getSummary.projectedAnnualIncome`
 - Crossover year: first year where sum of all sleeve incomes ≥ `targetIncome`
@@ -570,30 +673,68 @@ is card-based and action-oriented); Overview is a single unified read.
 
 **Purpose:** Endowment-style funding plan for multiple children.
 
-**Plan versioning:** Multiple plans per user. Active plan shown by default.
-Empty state: "Create your first plan" prompt with one CTA button.
+**Status: Built (Phase 3 complete for core features).**
 
-**Inputs:**
-- Children: name, current grade, college cost tier
-- Monthly contribution, insurance lump sum, ad-hoc lump sums
-- Return rate, inflation rate, student loan rate + repayment term
+**Setup wizard** — collected at first visit, creates the plan:
+- Children: name, birth year, college cost tier (public in-state $27k · public out-of-state $45k · private $60k · elite $85k / yr, 2025 dollars) + optional manual cost override
+- Initial savings (combined 529s or any earmarked funds)
+- Planned monthly contribution
+- Expected annual return (default 6%)
 
-**Outputs:**
-- Year-by-year projection chart (portfolio value + drawdown bars per child)
-- Per-child funded % and surplus/shortfall
-- True residual (written to `computed.trueResidual` by `computeProjection` — read by Retirement)
-- Loan payoff year
+**Savings config** — inline edit card (pencil icon top-right), updates after save:
+- Current savings, monthly contribution, annual return
+- Inflation rate (default 3%; configurable 0–15%)
+- Lump sums: year, amount, optional label (e.g. "RSU vest 2027")
+- Planned loans: total loan amount, interest rate (default 6.39% — Federal Direct Unsubsidized 2025–2026), repayment term (default 10 yrs)
 
-**Collaboration:**
-- Comment thread: all users with any share access can read and post
-- Author can edit or soft-delete their own comments
-- Visitor presence: last viewed timestamp shown per shared user
+**Children section** — inline editable rows (pencil icon per row):
+- Per-child: name, birth year, cost tier selector (preset buttons), manual annual cost override (currency input)
+- Choosing a tier preset populates the cost input; user can then fine-tune
+- Edits call `collegeUpdateChildren`, which re-runs Monte Carlo and refreshes the plan
 
-**Alts mode switching:** If switching from investment mode to sleeve mode would discard
-cash flow data, show a confirmation dialog before proceeding. No data is deleted
-without explicit confirmation.
+**Projection engine** — deterministic year-by-year simulation:
+- Costs inflation-adjusted from each child's college start year using configurable `inflationRate`
+- Each child uses `annualCostBase` if set, otherwise `COST_TIER_MAP[costTier]` as the base cost
+- Savings compound at `annualReturn`, plus monthly contrib + lump sums
+- Uncovered costs tracked as `totalUncovered`; loan reduces remaining gap in summary
+- Chart: amber bars (per-child annual costs) + green line (savings balance) + red dashed line (accumulated uncovered / loan balance below y=0)
 
-**Migrate from:** `college-funding-endowment/src/college-endowment-plan.jsx`
+**Metric cards:**
+1. Total projected cost (inflation-adjusted sum across all children × 4 years, using `inflationRate`)
+2. Projected at [first college year] (savings balance when first child starts)
+3. Cha-ching / Remaining gap (after planned loans; surplus shown green; "Fully funded" at zero)
+4. Monthly still needed / Monthly loan payment — uses `mc.extraMonthly` (extra $/mo to reach 90% MC success); shows monthly loan payment if plan is already fully funded
+
+**Chart toggle — Projection / Probability:**
+- Projection tab: deterministic savings vs. cost chart (default view)
+- Probability tab: Monte Carlo fan chart (p10–p90 bands)
+- When `successRate < 0.9` and Projection tab is active, the Probability toggle renders as an amber button
+  showing `Probability · {pct}%` — draws attention without switching tabs
+- Once the user clicks Probability tab, the button returns to normal styling regardless of success rate
+
+**Monte Carlo simulation** — computed server-side after every write, cached in `plan.monteCarloResult`:
+- 1000 simulations, ±12% annual return variance (moderate portfolio)
+- Box-Muller normal distribution, returns clamped to [−50%, +60%]
+- Success = uncovered costs ≤ planned loan amount
+- Outputs: `successRate`, `yearlyBands` (p10/p25/p50/p75/p90 + stacked-area band values), `extraMonthly`
+- `extraMonthly`: binary search (14 iterations × 300 sims) for extra $/mo to reach 90% success; 0 if already ≥90%
+- Fan chart: Recharts stacked Area (invisible base + shaded p10–p90 band) + 3 percentile lines
+- `collegeGetPlan` lazy-backfills `monteCarloResult` for plans written before server-side MC was added
+
+**Holistic residual callout:**
+- When `remainingGap ≤ 0` (plan is fully funded), show a callout card below the metric cards
+- Displays the residual `finalBalance` that will be available after all college costs are covered
+- Note: this residual is an asset that feeds the holistic / retirement view via `netWorthContribution`
+
+**Inter-module output** (`collegeGetSummary`):
+- `netWorthContribution = finalBalance − loanAmount` (residual savings asset minus loan liability)
+- `projectedAnnualIncome: 0` (college savings don't generate income)
+- Action items: `college.fundingGap` (warning/urgent if gap > $50k), `college.loanRepayment` (info, dismissible)
+
+**Planned (not yet built):**
+- Multiple plans per user, plan versioning UI
+- Comment thread per plan
+- Visitor presence (last viewed timestamp per shared user)
 
 ---
 
@@ -768,16 +909,31 @@ links to profile settings.
 **Done when:** Existing holistic planner users open `/retirement` and see their saved plan,
 loaded via the API. Unit tests green.
 
-### Phase 3 — Migrate College
-- Move projection logic into `college/computeProjection` Cloud Function
-- Migrate `college-endowment-plan.jsx` → `src/pages/College.jsx`
-- Remove all inline styles; complete shadcn migration
-- Implement plan versioning: existing `plans/{uid}` doc becomes the initial active plan
-- Implement comment thread via API (edit/delete own comments)
-- Implement visitor presence via `getSummary`
+### Phase 3 — Migrate College ✓ (core complete)
 
-**Done when:** Existing college plan users open `/college`, see their saved plan, and
-all collaboration features (comments, sharing) work. Integration tests green.
+**Done:**
+- `College.jsx` built from scratch (not migrated from `college-endowment-plan.jsx`)
+- shadcn/ui throughout — no inline styles, no hardcoded hex colors
+- Setup wizard: children (name, birth year, cost tier + optional manual cost), savings, monthly contrib, annual return
+- Savings config card: inline edit (pencil top-right), lump sums, loans, configurable inflation rate
+- Children section: per-row inline editing (name, birth year, tier preset + fine-tune cost input)
+- Deterministic year-by-year projection + chart (bars + savings line + loan balance line below zero)
+- `collegeSetup`, `collegeGetPlan`, `collegeUpdateSavings`, `collegeUpdateChildren`, `collegeGetSummary` Cloud Functions deployed
+- `collegeGetPlan` lazy-backfills `monteCarloResult` for pre-MC plans
+- `getSummary` returns inter-module contract; action items for funding gap and loan repayment
+- Monte Carlo: server-side (`functions/src/college/runMonteCarlo.js`), shared utils in `functions/src/shared/monteCarlo.js`
+- MC cached in `plan.monteCarloResult` after every write; frontend reads from plan, no client compute
+- Fan chart with p10/p25/p50/p75/p90 bands; `extraMonthly` suggestion to reach 90% confidence
+- Projection/Probability chart toggle; amber button with percentage when success < 90%
+- Monthly still needed uses `mc.extraMonthly` (consistent with MC probability suggestion)
+- Holistic residual callout when plan is fully funded
+- Profile page: X close button, dirty tracking, Cancel button
+
+**Remaining for full Phase 3 completion:**
+- Multiple plans per user + plan versioning UI
+- Comment thread via API
+- Visitor presence via `getSummary`
+- Integration tests
 
 ### Phase 4 — Alts + Dividends (new)
 - Build Alts: sleeve mode first, then investment mode with XIRR
