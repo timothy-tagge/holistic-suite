@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { useProfile } from "@/contexts/useProfile";
@@ -62,8 +61,7 @@ const MODULES = [
 const TOTAL_STEPS = 2;
 
 export function Onboarding() {
-  const navigate = useNavigate();
-  const { reloadProfile } = useProfile();
+  const { patchProfile } = useProfile();
 
   const [step, setStep] = useState(1);
   const [age, setAge] = useState("");
@@ -99,8 +97,8 @@ export function Onboarding() {
         activeModules: selectedModules,
       });
       if (result.data.ok) {
-        await reloadProfile();
-        navigate("/", { replace: true });
+        patchProfile(result.data.data.profile);
+        // isOnboarded will flip true → AppRoutes redirects away from /onboarding automatically
       } else {
         setError(result.data.error?.message ?? "Something went wrong.");
       }

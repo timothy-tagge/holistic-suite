@@ -37,7 +37,7 @@ export function ProfileProvider({ children, user }) {
   }, [loadProfile]);
 
   function patchProfile(updates) {
-    setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+    setProfile((prev) => (prev ? { ...prev, ...updates } : updates));
   }
 
   const isOnboarded =
