@@ -44,20 +44,32 @@ export const updateProfile = onCall(async (request) => {
 
   const db = getFirestore();
   const ref = db.collection("profile").doc(uid);
+  const now = new Date().toISOString();
 
-  // Verify document exists
-  const existing = await ref.get();
-  if (!existing.exists) {
-    throw new HttpsError("not-found", "Profile not found. Call getProfile first.");
-  }
-
-  const updates = { updatedAt: new Date().toISOString() };
+  const updates = { updatedAt: now };
   if (age !== undefined) updates.age = age;
   if (targetRetirementYear !== undefined)
     updates.targetRetirementYear = targetRetirementYear;
   if (activeModules !== undefined) updates.activeModules = activeModules;
 
-  await ref.update(updates);
+  // Use set+merge so this works even if the doc was never seeded by getProfile
+  const existing = await ref.get();
+  if (!existing.exists) {
+    const { token } = request.auth;
+    await ref.set({
+      displayName: token.name ?? "",
+      email: token.email ?? "",
+      photoURL: token.picture ?? "",
+      age: null,
+      targetRetirementYear: null,
+      activeModules: [],
+      createdAt: now,
+      ...updates,
+    });
+  } else {
+    await ref.update(updates);
+  }
+
   const updated = await ref.get();
 
   return { ok: true, data: { profile: updated.data() } };
