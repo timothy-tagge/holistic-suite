@@ -1,11 +1,32 @@
 import { useState, useEffect } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { useLocation } from "react-router-dom";
 import { auth, googleProvider } from "@/firebase";
+import { ProfileProvider } from "@/contexts/ProfileContext";
 import { AppHeader } from "@/components/AppHeader";
 import { LandingPage } from "@/pages/LandingPage";
 
+function Shell({ user, children }) {
+  const location = useLocation();
+  // Onboarding gets no AppHeader — it's a full standalone flow
+  const isOnboarding = location.pathname === "/onboarding";
+
+  function handleSignOut() {
+    signOut(auth).catch(console.error);
+  }
+
+  if (isOnboarding) return children;
+
+  return (
+    <div className="flex flex-col min-h-svh">
+      <AppHeader user={user} onSignOut={handleSignOut} />
+      <main className="flex-1">{children}</main>
+    </div>
+  );
+}
+
 export function AuthGate({ children }) {
-  const [user, setUser] = useState(undefined); // undefined = loading
+  const [user, setUser] = useState(undefined); // undefined = still loading
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u ?? null));
@@ -15,11 +36,7 @@ export function AuthGate({ children }) {
     signInWithPopup(auth, googleProvider).catch(console.error);
   }
 
-  function handleSignOut() {
-    signOut(auth).catch(console.error);
-  }
-
-  // Still resolving auth state
+  // Still resolving Firebase auth
   if (user === undefined) {
     return (
       <div className="flex items-center justify-center min-h-svh text-muted-foreground text-sm gap-2">
@@ -39,16 +56,15 @@ export function AuthGate({ children }) {
     );
   }
 
-  // Unauthenticated — show landing page (no header)
+  // Unauthenticated — show landing page
   if (!user) {
     return <LandingPage onSignIn={handleSignIn} />;
   }
 
-  // Authenticated — wrap children with AppHeader
+  // Authenticated — provide profile context and shell
   return (
-    <div className="flex flex-col min-h-svh">
-      <AppHeader user={user} onSignOut={handleSignOut} />
-      <main className="flex-1">{children}</main>
-    </div>
+    <ProfileProvider user={user}>
+      <Shell user={user}>{children}</Shell>
+    </ProfileProvider>
   );
 }

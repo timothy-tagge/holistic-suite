@@ -6,7 +6,7 @@ import react from "eslint-plugin-react";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist", "functions/lib"]),
+  globalIgnores(["dist", "functions/lib", "coverage"]),
 
   // Node.js config files
   {
@@ -46,9 +46,9 @@ export default defineConfig([
     },
   },
 
-  // shadcn UI files — relax react-refresh (they export helpers alongside components)
+  // Files that legitimately mix context exports with components/hooks
   {
-    files: ["src/components/ui/**/*.jsx"],
+    files: ["src/components/ui/**/*.jsx", "src/contexts/**/*.jsx"],
     rules: {
       "react-refresh/only-export-components": "off",
     },

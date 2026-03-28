@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { Moon, Sun, LogOut, Share2 } from "lucide-react";
+import { Moon, Sun, LogOut, Share2, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useProfile } from "@/contexts/useProfile";
 
 const NAV = [
   { key: "overview", label: "Overview", href: "/overview" },
@@ -28,11 +29,29 @@ function useAppTheme() {
   return [isDark, () => applyTheme(!isDark)];
 }
 
+function Avatar({ profile }) {
+  if (!profile) return <UserCircle className="h-5 w-5" />;
+  if (profile.photoURL) {
+    return (
+      <img
+        src={profile.photoURL}
+        alt={profile.displayName}
+        className="w-6 h-6 rounded-full object-cover"
+      />
+    );
+  }
+  return (
+    <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold font-heading">
+      {profile.displayName?.[0] ?? "?"}
+    </div>
+  );
+}
+
 export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
   const location = useLocation();
   const [isDark, toggleDark] = useAppTheme();
+  const { profile } = useProfile();
 
-  // Derive active tab from current route
   const currentKey =
     NAV.find((n) => n.href && location.pathname.startsWith(n.href))?.key ?? null;
 
@@ -91,9 +110,9 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
         </nav>
 
         {/* Right side */}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1">
           {saveStatus && (
-            <span className="text-xs text-muted-foreground hidden sm:inline">
+            <span className="text-xs text-muted-foreground hidden sm:inline mr-2">
               {saveStatus === "saving"
                 ? "Saving…"
                 : saveStatus === "saved"
@@ -119,9 +138,24 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
 
           {user && (
             <>
-              <span className="text-xs text-muted-foreground hidden md:inline truncate max-w-[160px]">
-                {user.email}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors"
+                    aria-label="Profile settings"
+                  >
+                    <Avatar profile={profile} />
+                    <span className="text-xs text-muted-foreground hidden md:inline truncate max-w-[140px]">
+                      {profile?.displayName || user.email}
+                    </span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Profile &amp; settings</p>
+                </TooltipContent>
+              </Tooltip>
+
               <Button
                 variant="ghost"
                 size="icon"
