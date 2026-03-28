@@ -99,6 +99,7 @@ function project(plan) {
 
     if (year === firstCollegeYear) projectedAtFirst = Math.round(balance);
 
+    const prevRunningLoan = runningLoanBalance;
     const row = { year };
     for (const child of childData) {
       if (year >= child.startYear && year < child.endYear) {
@@ -114,7 +115,13 @@ function project(plan) {
       }
     }
     row.savings = Math.round(balance);
-    row.loanBalance = runningLoanBalance > 0 ? -Math.round(runningLoanBalance) : 0;
+    // Hold loanBalance at 0 in the first crossover year so green and red meet at the same point
+    row.loanBalance =
+      runningLoanBalance > 0
+        ? prevRunningLoan === 0
+          ? 0
+          : -Math.round(runningLoanBalance)
+        : 0;
     yearly.push(row);
   }
 
