@@ -665,7 +665,32 @@ Single authoritative section — no split between "Shared Infrastructure" and "M
 single module but a composed view of everything. Distinct from the `/` dashboard (which
 is card-based and action-oriented); Overview is a single unified read.
 
-**Scope:** Deferred — design TBD before build. Likely Phase 5 or 6.
+**Status: Partially built — college data live; other modules show stubs.**
+
+**Layout:** One card per active module, stacked vertically. Below a separator, a grid of
+"Not in your plan" stub cards for inactive modules. Empty state if no modules are active.
+
+**College section** — calls `collegeGetSummary`, shows holistic-framing metrics:
+
+| Metric | Source | Notes |
+|---|---|---|
+| Post-college residual | `netWorthContribution` | Green if positive (retirement asset); red if net liability |
+| Monthly allocation | `metrics.monthlyContribution` | Cash flow currently locked into college |
+| Active years | `firstCollegeYear – lastGraduationYear` | When money flows out; when residual becomes available |
+| Funding confidence | `metrics.successRate` | Amber highlighted row (bg + border) when < 90%; green when ≥ 90%; shows `+$X/mo to reach 90%` sub-label |
+| Unfunded gap | `metrics.remainingGap` | Only shown when > 0; red value |
+| Loan repayment | `metrics.monthlyLoanPayment` | Only shown when > 0; muted value with graduation year |
+
+**`collegeGetSummary` additions:** `metrics.successRate` and `metrics.extraMonthly` are now
+included from `plan.monteCarloResult`, making them available without a second API call.
+
+**Retirement / Alts sections** — shown as dimmed stub cards (Phase badge) when those modules
+are active but not yet built.
+
+**Planned (later phases):**
+- Retirement section: income projection, crossover year, % of target covered
+- Alts section: blended IRR, DPI, total committed vs. distributed
+- Net worth total bar across all active modules at top of page
 
 ---
 
@@ -698,6 +723,7 @@ is card-based and action-oriented); Overview is a single unified read.
 - Savings compound at `annualReturn`, plus monthly contrib + lump sums
 - Uncovered costs tracked as `totalUncovered`; loan reduces remaining gap in summary
 - Chart: amber bars (per-child annual costs) + green line (savings balance) + red dashed line (accumulated uncovered / loan balance below y=0)
+- Green and red lines meet at the same zero point: `loanBalance` is held at 0 in the first crossover year so both lines share the origin before red descends
 
 **Metric cards:**
 1. Total projected cost (inflation-adjusted sum across all children × 4 years, using `inflationRate`)
@@ -928,6 +954,8 @@ loaded via the API. Unit tests green.
 - Monthly still needed uses `mc.extraMonthly` (consistent with MC probability suggestion)
 - Holistic residual callout when plan is fully funded
 - Profile page: X close button, dirty tracking, Cancel button
+- Overview page: college holistic data live (`collegeGetSummary`); funding confidence row amber-highlighted when < 90%
+- Chart crossover: green savings line and red loan line share zero point at first crossover year
 
 **Remaining for full Phase 3 completion:**
 - Multiple plans per user + plan versioning UI
