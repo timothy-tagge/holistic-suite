@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "tagge-app-suite-dev"
+  },
+  "targets": {
+    "tagge-app-suite-dev": {
+      "hosting": {
+        "holistic-suite": [
+          "holistic-suite"
+        ]
+      }
+    }
+  }
+}
