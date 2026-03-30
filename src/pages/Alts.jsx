@@ -755,11 +755,14 @@ function fmtCompact(n) {
 function ProjectionChartTooltip({ active, payload, label, totalCommitted }) {
   if (!active || !payload?.length) return null;
   const dist = payload.find(p => p.dataKey === "distributions")?.value ?? 0;
-  const exit = payload.find(p => p.dataKey === "exitProceeds")?.value ?? 0;
   const nav = payload.find(p => p.dataKey === "portfolioNAV")?.value ?? 0;
   const cumulative = payload.find(p => p.dataKey === "cumulative")?.value ?? 0;
+  // exits array lives on the data point itself
+  const exits = payload[0]?.payload?.exits ?? [];
+  const totalExitProceeds = exits.reduce((s, e) => s + e.proceeds, 0);
+
   return (
-    <div className="rounded-lg border border-border bg-background p-3 text-xs shadow-lg min-w-44">
+    <div className="rounded-lg border border-border bg-background p-3 text-xs shadow-lg min-w-48">
       <p className="font-semibold mb-2">{label}</p>
       {nav > 0 && (
         <div className="flex justify-between gap-4">
@@ -769,14 +772,25 @@ function ProjectionChartTooltip({ active, payload, label, totalCommitted }) {
       )}
       {dist > 0 && (
         <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">Annual yield</span>
+          <span className="text-muted-foreground">Cash yield</span>
           <span className="font-mono">{fmtUSD(dist)}</span>
         </div>
       )}
-      {exit > 0 && (
-        <div className="flex justify-between gap-4">
+      {exits.length > 0 && (
+        <div className="mt-1 pt-1 border-t border-border flex flex-col gap-0.5">
           <span className="text-muted-foreground">Exit proceeds</span>
-          <span className="font-mono">{fmtUSD(exit)}</span>
+          {exits.map((e) => (
+            <div key={e.name} className="flex justify-between gap-4 pl-2">
+              <span className="text-muted-foreground truncate max-w-28">{e.name}</span>
+              <span className="font-mono">{fmtUSD(e.proceeds)}</span>
+            </div>
+          ))}
+          {exits.length > 1 && (
+            <div className="flex justify-between gap-4 font-medium">
+              <span className="text-muted-foreground">Total exits</span>
+              <span className="font-mono">{fmtUSD(totalExitProceeds)}</span>
+            </div>
+          )}
         </div>
       )}
       <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-border">
@@ -898,9 +912,8 @@ function ProjectionChart({ investments, totalCommitted }) {
             <Bar dataKey="distributions" stackId="a" fill={CHART_COLORS.distributions} radius={[0, 0, 3, 3]} />
             <Bar dataKey="exitProceeds" stackId="a" fill={CHART_COLORS.exitProceeds} radius={[3, 3, 0, 0]}>
               <LabelList
-                dataKey="exitProceeds"
+                dataKey="exitLabel"
                 position="top"
-                formatter={(v) => (v > 0 ? "Exit" : "")}
                 style={{ fontSize: 9, fontWeight: 600, fill: CHART_COLORS.exitProceeds }}
               />
             </Bar>

@@ -68,11 +68,13 @@ export function calcInvProjectedNAV(inv, year) {
  * Builds a year-by-year projection table across all investments.
  * Returns rows only for years with meaningful data (distributions or exit events).
  *
- * Each row: { year, distributions, exitProceeds, portfolioNAV, cumulative }
+ * Each row: { year, distributions, exitProceeds, portfolioNAV, cumulative, exits, exitLabel }
  *   distributions  — projected annual cash yield (income)
  *   exitProceeds   — estimated capital return at exit (IRR-based)
  *   portfolioNAV   — total paper value of all active investments at year-end
  *   cumulative     — running total of all cash received (distributions + exits)
+ *   exits          — per-investment breakdown: [{ name, proceeds }]
+ *   exitLabel      — display string for bar label: investment name or "N exits"
  */
 export function buildProjection(investments, referenceYear) {
   if (!investments?.length) return [];
@@ -93,6 +95,7 @@ export function buildProjection(investments, referenceYear) {
     let distributions = 0;
     let exitProceeds = 0;
     let portfolioNAV = 0;
+    const exits = [];
 
     for (const inv of active) {
       const cocStartYear = inv.cocStartDate ? yearFromISO(inv.cocStartDate) : null;
@@ -110,15 +113,18 @@ export function buildProjection(investments, referenceYear) {
           * Math.pow(1 + (inv.cocGrowthRate ?? 0), n);
       }
 
-      // Exit proceeds
+      // Exit proceeds — track per-investment for attribution
       if (exitYear && year === exitYear) {
+        let proceeds;
         if (inv.projectedIRR != null && inv.projectedHoldYears != null) {
           const multiple = Math.pow(1 + inv.projectedIRR, inv.projectedHoldYears);
           const totalProjDist = calcInvTotalProjectedDist(inv);
-          exitProceeds += Math.max(0, inv.committed * multiple - totalProjDist);
+          proceeds = Math.max(0, inv.committed * multiple - totalProjDist);
         } else {
-          exitProceeds += inv.committed;
+          proceeds = inv.committed;
         }
+        exitProceeds += proceeds;
+        exits.push({ name: inv.name, proceeds: Math.round(proceeds) });
       }
 
       // NAV (paper value of this investment at year-end)
@@ -126,6 +132,11 @@ export function buildProjection(investments, referenceYear) {
     }
 
     cumulative += distributions + exitProceeds;
+
+    const exitLabel =
+      exits.length === 1 ? exits[0].name
+      : exits.length > 1 ? `${exits.length} exits`
+      : "";
 
     // Include every year from currentYear forward so the NAV line is continuous,
     // even in years with no cash events.
@@ -135,6 +146,8 @@ export function buildProjection(investments, referenceYear) {
       exitProceeds: Math.round(exitProceeds),
       portfolioNAV: Math.round(portfolioNAV),
       cumulative: Math.round(cumulative),
+      exits,
+      exitLabel,
     });
   }
 

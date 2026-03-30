@@ -232,6 +232,39 @@ describe("buildProjection", () => {
     expect(year1?.distributions).toBeCloseTo(8800, -1);
   });
 
+  it("exit year row includes exits array with investment name and proceeds", () => {
+    const inv = makeInv({ name: "Ashcroft Fund V" });
+    const rows = buildProjection([inv], 2024);
+    const exitRow = rows.find(r => r.year === 2028);
+    expect(exitRow?.exits).toHaveLength(1);
+    expect(exitRow?.exits[0].name).toBe("Ashcroft Fund V");
+    expect(exitRow?.exits[0].proceeds).toBeGreaterThan(0);
+  });
+
+  it("exitLabel is the investment name for a single exit", () => {
+    const inv = makeInv({ name: "Syndication X" });
+    const rows = buildProjection([inv], 2024);
+    const exitRow = rows.find(r => r.year === 2028);
+    expect(exitRow?.exitLabel).toBe("Syndication X");
+  });
+
+  it("exitLabel is 'N exits' when multiple investments exit the same year", () => {
+    const inv1 = makeInv({ id: "1", name: "Fund A" });
+    const inv2 = makeInv({ id: "2", name: "Fund B" });
+    const rows = buildProjection([inv1, inv2], 2024);
+    const exitRow = rows.find(r => r.year === 2028);
+    expect(exitRow?.exitLabel).toBe("2 exits");
+    expect(exitRow?.exits).toHaveLength(2);
+  });
+
+  it("non-exit rows have empty exits array and empty exitLabel", () => {
+    const inv = makeInv();
+    const rows = buildProjection([inv], 2024);
+    const distRow = rows.find(r => r.year === 2025 && r.exitProceeds === 0);
+    expect(distRow?.exits).toEqual([]);
+    expect(distRow?.exitLabel).toBe("");
+  });
+
   it("uses a fallback of committed capital as exit proceeds when IRR is missing", () => {
     const inv = makeInv({ projectedIRR: null, projectedHoldYears: null });
     const rows = buildProjection([inv], 2024);
