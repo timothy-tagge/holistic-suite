@@ -24,6 +24,7 @@ import { Layers, Pencil, Trash2, ChevronDown, ChevronUp, Plus, Loader2 } from "l
 import {
   ComposedChart,
   Bar,
+  LabelList,
   Line,
   XAxis,
   YAxis,
@@ -794,6 +795,14 @@ function ProjectionChartTooltip({ active, payload, label, totalCommitted }) {
   );
 }
 
+// Colors used in the projection chart — kept in one place for consistency.
+const CHART_COLORS = {
+  distributions: "hsl(var(--primary))",      // green — ongoing income
+  exitProceeds:  "hsl(var(--chart-3))",       // amber — terminal capital event
+  portfolioNAV:  "hsl(var(--chart-4))",       // muted blue/violet — paper value line
+  committed:     "hsl(var(--muted-foreground))",
+};
+
 function ProjectionChart({ investments, totalCommitted }) {
   const rows = buildProjection(investments);
 
@@ -812,8 +821,31 @@ function ProjectionChart({ investments, totalCommitted }) {
     );
   }
 
-  // Attach cumulative to the data so the tooltip can access it
-  const data = rows.map(r => ({ ...r }));
+  // Years where an investment exits — used to style X-axis ticks differently.
+  const exitYears = new Set(rows.filter(r => r.exitProceeds > 0).map(r => r.year));
+
+  // Custom X-axis tick: exit years get an amber label + "↑ exit" annotation below.
+  function renderXTick({ x, y, payload }) {
+    const isExit = exitYears.has(payload.value);
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text
+          dy={12}
+          textAnchor="middle"
+          fontSize={11}
+          fontWeight={isExit ? "600" : "400"}
+          fill={isExit ? CHART_COLORS.exitProceeds : CHART_COLORS.committed}
+        >
+          {payload.value}
+        </text>
+        {isExit && (
+          <text dy={24} textAnchor="middle" fontSize={9} fill={CHART_COLORS.exitProceeds}>
+            ↑ exit
+          </text>
+        )}
+      </g>
+    );
+  }
 
   return (
     <Card>
@@ -821,18 +853,19 @@ function ProjectionChart({ investments, totalCommitted }) {
         <CardTitle className="text-sm font-medium text-muted-foreground">Projected cash flows</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={240}>
-          <ComposedChart data={data} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={rows} margin={{ top: 16, right: 16, bottom: 16, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
             <XAxis
               dataKey="year"
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tick={renderXTick}
               axisLine={false}
               tickLine={false}
+              interval={0}
             />
             <YAxis
               tickFormatter={fmtCompact}
-              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              tick={{ fontSize: 11, fill: CHART_COLORS.committed }}
               axisLine={false}
               tickLine={false}
               width={52}
@@ -842,36 +875,48 @@ function ProjectionChart({ investments, totalCommitted }) {
               cursor={{ fill: "hsl(var(--muted))" }}
             />
             <Legend
-              wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+              wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
               formatter={(value) => ({
-                distributions: "Annual yield",
-                exitProceeds: "Exit proceeds",
-                portfolioNAV: "Portfolio value",
+                distributions: "Cash yield",
+                exitProceeds:  "Exit proceeds",
+                portfolioNAV:  "Portfolio value",
               }[value] ?? value)}
             />
             {totalCommitted > 0 && (
               <ReferenceLine
                 y={totalCommitted}
-                stroke="hsl(var(--muted-foreground))"
+                stroke={CHART_COLORS.committed}
                 strokeDasharray="4 4"
-                label={{ value: "Committed", position: "insideTopRight", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                label={{
+                  value: "Committed",
+                  position: "insideTopRight",
+                  fontSize: 10,
+                  fill: CHART_COLORS.committed,
+                }}
               />
             )}
-            <Bar dataKey="distributions" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 3, 3]} />
-            <Bar dataKey="exitProceeds" stackId="a" fill="hsl(var(--chart-2))" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="distributions" stackId="a" fill={CHART_COLORS.distributions} radius={[0, 0, 3, 3]} />
+            <Bar dataKey="exitProceeds" stackId="a" fill={CHART_COLORS.exitProceeds} radius={[3, 3, 0, 0]}>
+              <LabelList
+                dataKey="exitProceeds"
+                position="top"
+                formatter={(v) => (v > 0 ? "Exit" : "")}
+                style={{ fontSize: 9, fontWeight: 600, fill: CHART_COLORS.exitProceeds }}
+              />
+            </Bar>
             <Line
               dataKey="portfolioNAV"
               type="monotone"
-              stroke="hsl(var(--chart-4))"
+              stroke={CHART_COLORS.portfolioNAV}
               strokeWidth={2}
               dot={false}
               strokeDasharray="6 3"
             />
           </ComposedChart>
         </ResponsiveContainer>
-        <p className="text-xs text-muted-foreground mt-2">
-          Portfolio value line: committed × (1 + projected IRR)^years held − distributions received.
-          Dashed horizontal = total committed capital (break-even threshold).
+        <p className="text-xs text-muted-foreground mt-1">
+          Amber bars and labels = exit year (capital return estimated from projected IRR).
+          Dashed line = portfolio paper value. Dashed horizontal = total committed.
         </p>
       </CardContent>
     </Card>
