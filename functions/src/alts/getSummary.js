@@ -28,6 +28,21 @@ export const altsGetSummary = onCall({ cors: true }, async (request) => {
     });
   }
 
+  // Projected annual income = sum of all active investments' distributions for current year
+  const currentYear = new Date().getFullYear();
+  let projectedAnnualIncome = 0;
+  for (const inv of (plan.investments ?? [])) {
+    if (inv.status === "realized") continue;
+    if (inv.projectedCashOnCash == null || !inv.cocStartDate) continue;
+    const cocStartYear = new Date(inv.cocStartDate).getFullYear();
+    const exitYear = inv.metrics?.projectedExitYear ?? null;
+    if (currentYear >= cocStartYear && (exitYear == null || currentYear < exitYear)) {
+      const n = currentYear - cocStartYear;
+      const growth = Math.pow(1 + (inv.cocGrowthRate ?? 0), n);
+      projectedAnnualIncome += inv.committed * inv.projectedCashOnCash * growth;
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -36,7 +51,7 @@ export const altsGetSummary = onCall({ cors: true }, async (request) => {
         planName: plan.name,
         activePlanId: uid,
         netWorthContribution: portfolio.totalCalled - portfolio.totalDistributions,
-        projectedAnnualIncome: 0,
+        projectedAnnualIncome: Math.round(projectedAnnualIncome),
         metrics: {
           totalCommitted: portfolio.totalCommitted,
           totalCalled: portfolio.totalCalled,

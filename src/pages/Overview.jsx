@@ -209,6 +209,111 @@ function CollegeSection({ initialized }) {
   );
 }
 
+// ── Alts section ─────────────────────────────────────────────────────────────
+
+function AltsSection() {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [empty, setEmpty] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fn = httpsCallable(functions, "altsGetSummary");
+    fn()
+      .then((result) => {
+        if (result.data.ok) setSummary(result.data.data.summary);
+        else setError(result.data.error?.message ?? "Failed to load alts data.");
+      })
+      .catch((err) => {
+        // not-found means no plan exists yet — show empty state, not error
+        if (err.code === "functions/not-found") setEmpty(true);
+        else setError(err.message ?? "Failed to load alts data.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const m = summary?.metrics;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+              <Layers className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="font-heading text-base">Alts</CardTitle>
+              {summary?.planName && (
+                <p className="text-xs text-muted-foreground">{summary.planName}</p>
+              )}
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7" asChild>
+            <Link to="/alts">
+              Details <ArrowRight className="h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading && (
+          <p className="text-sm text-muted-foreground py-3">Loading…</p>
+        )}
+
+        {!loading && (empty || (!summary && !error)) && (
+          <div className="flex items-center justify-between py-2">
+            <p className="text-sm text-muted-foreground">No investments recorded yet.</p>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/alts">Add investment</Link>
+            </Button>
+          </div>
+        )}
+
+        {!loading && error && (
+          <p className="text-sm text-destructive py-3">{error}</p>
+        )}
+
+        {!loading && m && (
+          <div className="divide-y divide-border">
+            <MetricRow
+              label="Capital at work"
+              value={m.totalCalled > 0 ? "$" + Math.round(m.totalCalled - m.totalDistributions).toLocaleString() : "—"}
+              sub={m.investmentCount > 0 ? `${m.investmentCount} investment${m.investmentCount !== 1 ? "s" : ""} · $${Math.round(m.totalCommitted).toLocaleString()} committed` : "No investments yet"}
+            />
+            <MetricRow
+              label="Blended IRR"
+              value={m.blendedIRR != null ? (m.blendedIRR * 100).toFixed(1) + "%" : "—"}
+              sub={m.blendedIRR != null ? "XIRR across all cash flows" : "Needs distributions to compute"}
+            />
+            <MetricRow
+              label="DPI"
+              value={m.portfolioDPI != null ? m.portfolioDPI.toFixed(2) + "×" : "—"}
+              sub="Total distributions ÷ total called"
+            />
+            {summary.projectedAnnualIncome > 0 && (
+              <MetricRow
+                label="Projected income (this year)"
+                value={"$" + Math.round(summary.projectedAnnualIncome).toLocaleString()}
+                sub="Annual cash yield from active investments"
+                valueClass="text-green-700 dark:text-green-400"
+              />
+            )}
+          </div>
+        )}
+
+        {!loading && !error && m && m.investmentCount === 0 && (
+          <div className="pt-3">
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/alts">Add first investment</Link>
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Stub for modules not yet built ────────────────────────────────────────────
 
 function ModuleStub({ icon: Icon, label, description, href, phase }) {
@@ -277,16 +382,8 @@ export function Overview() {
           />
         )}
 
-        {/* Alts stub */}
-        {altsActive && (
-          <ModuleStub
-            icon={Layers}
-            label="Alts"
-            description="Blended IRR, total committed, total distributions — alt portfolio at a glance."
-            href="/alts"
-            phase="Phase 4"
-          />
-        )}
+        {/* Alts */}
+        {altsActive && <AltsSection />}
 
         {/* No active modules */}
         {!collegeActive && !retirementActive && !altsActive && (

@@ -21,6 +21,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Layers, Pencil, Trash2, ChevronDown, ChevronUp, Plus, Loader2 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { parseFormatted, formatWithCommas } from "@/lib/formatNumber";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -729,6 +740,193 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
   );
 }
 
+// ── Projection math ──────────────────────────────────────────────────────────
+
+function calcInvTotalProjectedDist(inv) {
+  if (!inv.projectedCashOnCash || !inv.cocStartDate || !inv.metrics?.projectedExitYear) return 0;
+  const cocStartYear = new Date(inv.cocStartDate).getFullYear();
+  const exitYear = inv.metrics.projectedExitYear;
+  let total = 0;
+  for (let y = cocStartYear; y < exitYear; y++) {
+    const n = y - cocStartYear;
+    total += inv.committed * inv.projectedCashOnCash * Math.pow(1 + (inv.cocGrowthRate ?? 0), n);
+  }
+  return total;
+}
+
+function buildProjection(investments) {
+  if (!investments?.length) return [];
+  const currentYear = new Date().getFullYear();
+  const active = investments.filter(inv => inv.status === "active");
+
+  let maxYear = currentYear + 5;
+  for (const inv of active) {
+    const ey = inv.metrics?.projectedExitYear;
+    if (ey && ey > maxYear) maxYear = ey;
+  }
+
+  let cumulative = 0;
+  const rows = [];
+
+  for (let year = currentYear; year <= maxYear; year++) {
+    let distributions = 0;
+    let exitProceeds = 0;
+
+    for (const inv of active) {
+      const cocStartYear = inv.cocStartDate ? new Date(inv.cocStartDate).getFullYear() : null;
+      const exitYear = inv.metrics?.projectedExitYear ?? null;
+
+      if (
+        inv.projectedCashOnCash != null &&
+        cocStartYear != null &&
+        year >= cocStartYear &&
+        (exitYear == null || year < exitYear)
+      ) {
+        const n = year - cocStartYear;
+        distributions += inv.committed * inv.projectedCashOnCash * Math.pow(1 + (inv.cocGrowthRate ?? 0), n);
+      }
+
+      if (exitYear && year === exitYear) {
+        if (inv.projectedIRR != null && inv.projectedHoldYears != null) {
+          const multiple = Math.pow(1 + inv.projectedIRR, inv.projectedHoldYears);
+          const totalProjDist = calcInvTotalProjectedDist(inv);
+          exitProceeds += Math.max(0, inv.committed * multiple - totalProjDist);
+        } else {
+          exitProceeds += inv.committed;
+        }
+      }
+    }
+
+    cumulative += distributions + exitProceeds;
+    if (distributions > 0 || exitProceeds > 0) {
+      rows.push({
+        year,
+        distributions: Math.round(distributions),
+        exitProceeds: Math.round(exitProceeds),
+        cumulative: Math.round(cumulative),
+      });
+    }
+  }
+
+  return rows;
+}
+
+// ── ProjectionChart ───────────────────────────────────────────────────────────
+
+function fmtCompact(n) {
+  if (n == null) return "—";
+  if (Math.abs(n) >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
+  if (Math.abs(n) >= 1_000) return "$" + (n / 1_000).toFixed(0) + "K";
+  return "$" + n;
+}
+
+function ProjectionChartTooltip({ active, payload, label, totalCommitted }) {
+  if (!active || !payload?.length) return null;
+  const dist = payload.find(p => p.dataKey === "distributions")?.value ?? 0;
+  const exit = payload.find(p => p.dataKey === "exitProceeds")?.value ?? 0;
+  const cumulative = payload.find(p => p.dataKey === "cumulative")?.value ?? 0;
+  return (
+    <div className="rounded-lg border border-border bg-background p-3 text-xs shadow-lg min-w-40">
+      <p className="font-semibold mb-2">{label}</p>
+      {dist > 0 && (
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">Distributions</span>
+          <span className="font-mono">{fmtUSD(dist)}</span>
+        </div>
+      )}
+      {exit > 0 && (
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">Exit proceeds</span>
+          <span className="font-mono">{fmtUSD(exit)}</span>
+        </div>
+      )}
+      <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-border">
+        <span className="text-muted-foreground">Cumulative</span>
+        <span className={`font-mono font-medium ${cumulative >= totalCommitted ? "text-green-700 dark:text-green-400" : ""}`}>
+          {fmtUSD(cumulative)}
+        </span>
+      </div>
+      {totalCommitted > 0 && (
+        <div className="flex justify-between gap-4">
+          <span className="text-muted-foreground">Total committed</span>
+          <span className="font-mono text-muted-foreground">{fmtUSD(totalCommitted)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectionChart({ investments, totalCommitted }) {
+  const rows = buildProjection(investments);
+
+  if (!rows.length) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Projected cash flows</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Add projected cash yield % and distributions start date to an investment to see projections.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Attach cumulative to the data so the tooltip can access it
+  const data = rows.map(r => ({ ...r }));
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">Projected cash flows</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis
+              dataKey="year"
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tickFormatter={fmtCompact}
+              tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+              axisLine={false}
+              tickLine={false}
+              width={52}
+            />
+            <RechartsTooltip
+              content={<ProjectionChartTooltip totalCommitted={totalCommitted} />}
+              cursor={{ fill: "hsl(var(--muted))" }}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+              formatter={(value) => value === "distributions" ? "Annual yield" : "Exit proceeds"}
+            />
+            {totalCommitted > 0 && (
+              <ReferenceLine
+                y={totalCommitted}
+                stroke="hsl(var(--muted-foreground))"
+                strokeDasharray="4 4"
+                label={{ value: "Committed", position: "right", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+              />
+            )}
+            <Bar dataKey="distributions" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 3, 3]} />
+            <Bar dataKey="exitProceeds" stackId="a" fill="hsl(var(--chart-2))" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+        <p className="text-xs text-muted-foreground mt-2">
+          Exit proceeds estimated from projected IRR and hold period. Dashed line = total committed capital.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── PortfolioSummary ─────────────────────────────────────────────────────────
 
 function PortfolioSummary({ portfolio }) {
@@ -902,6 +1100,12 @@ export function Alts() {
         <div className="flex flex-col gap-6">
           {/* Portfolio summary */}
           <PortfolioSummary portfolio={plan.portfolio} />
+
+          {/* Projection chart */}
+          <ProjectionChart
+            investments={plan.investments}
+            totalCommitted={plan.portfolio.totalCommitted}
+          />
 
           {/* Investments section */}
           <div className="flex flex-col gap-4">
