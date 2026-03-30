@@ -265,10 +265,24 @@ alts-plans/{planId}
   mode: "sleeve" | "investments"
   sleeve: { irr, currentValue, annualContrib }
   investments: [
-    { id, name, vintage, committed, currency,
-      projectedIRR, status: "active"|"realized",
+    {
+      id, name, sponsor, vintage, committed,
+      investmentType: "real-estate"|"private-equity"|"venture-capital"|"private-credit"
+                    | "hedge-fund"|"energy"|"notes"|"legal"|"development"|"other" | null,
+      realEstateNiche: "multifamily"|"industrial"|"mobile-home"|"self-storage"|"parking"
+                     | "retail"|"office"|"senior-living"|"student-housing"|"mixed-use"
+                     | "development"|"other" | null,  // only set when investmentType = "real-estate"
+      projectedIRR,           // syndicator's projected IRR (decimal, e.g. 0.18 = 18%)
+      preferredReturn,        // pref return hurdle (decimal)
+      projectedCashOnCash,    // annual cash yield % (decimal)
+      cocStartDate,           // ISO date — when distributions are expected to start
+      projectedHoldYears,     // expected hold period in years
+      cocGrowthRate,          // annual distribution growth rate (decimal)
+      currentNAV: null,       // reserved for future mark-to-market IRR
+      status: "active"|"realized",
       cashFlows: [{ id, date, type, amount, note }]
       // type: "call" | "distribution-income" | "distribution-roc" | "exit"
+      // TODO: research complete cash flow type taxonomy (other event types in LP agreements)
     }
   ]
 
@@ -778,17 +792,29 @@ Empty state: "Add your first investment" with a clear CTA.
 - Projected income fed to Overview
 
 **Investment mode (precise):**
-- Individual investment records: name, vintage year, committed capital, currency
+- Individual investment records: name, sponsor, vintage year, committed capital
+- Investment type taxonomy: Real Estate (with niche), Private Equity, Venture Capital,
+  Private Credit, Hedge Fund, Energy, Notes/Promissory Notes, Legal Finance, Development, Other
+- Real estate niches: Multifamily, Industrial, Mobile Home, Self-Storage, Parking, Retail,
+  Office, Senior Living, Student Housing, Mixed Use, Development, Other
+- Projection inputs per investment: projected IRR, preferred return, annual cash yield %,
+  distributions start date, hold period (years), annual distribution growth %
 - Cash flow log: capital calls, distributions (income vs. return of capital), exit proceeds
 - Each cash flow: date, type, amount, optional note
-- Projected IRR for unrealized investments
-- Realized IRR via XIRR (Newton–Raphson) for investments with sufficient cash flows
-- Portfolio metrics: blended IRR, DPI, RVPI, TVPI
-- Capital deployed vs. committed chart
-- Investment calendar: expected future calls/distributions
+- Computed per investment: total called, total distributions, DPI, XIRR (actual IRR),
+  projected annual distribution, projected exit year
+- IRR comparison: projected (syndicator's) vs. actual (XIRR) with delta
+- Portfolio metrics: blended IRR (XIRR across all cash flows), total DPI, total committed/called
+- XIRR shows "—" when no distributions received yet — honest, not misleading
+- Capital deployed vs. committed chart (planned)
+- Investment calendar: expected future calls/distributions (planned)
+- TODO: research complete cash flow type taxonomy from LP agreement conventions
+- Document attachments per investment: Phase 6
 
 **Mode switching:** Follows the global Data Loss Confirmation Pattern — switching modes
 shows a confirmation dialog if the current mode has data. No data is deleted.
+
+**Multi-plan support:** v2. v1 supports one plan per user.
 
 **Future (not v1):** Vetting workflow for evaluating new opportunities.
 

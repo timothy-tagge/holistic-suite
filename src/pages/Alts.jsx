@@ -14,6 +14,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Layers, Pencil, Trash2, ChevronDown, ChevronUp, Plus, Loader2 } from "lucide-react";
 import { parseFormatted, formatWithCommas } from "@/lib/formatNumber";
 
@@ -26,6 +32,47 @@ const CF_TYPE_LABELS = {
   exit: "Exit proceeds",
 };
 const CF_TYPES = Object.entries(CF_TYPE_LABELS).map(([value, label]) => ({ value, label }));
+
+const INVESTMENT_TYPES = [
+  { value: "real-estate",     label: "Real Estate" },
+  { value: "private-equity",  label: "Private Equity" },
+  { value: "venture-capital", label: "Venture Capital" },
+  { value: "private-credit",  label: "Private Credit" },
+  { value: "hedge-fund",      label: "Hedge Fund" },
+  { value: "energy",          label: "Energy" },
+  { value: "notes",           label: "Notes / Promissory Notes" },
+  { value: "legal",           label: "Legal Finance" },
+  { value: "development",     label: "Development" },
+  { value: "other",           label: "Other" },
+];
+
+const RE_NICHES = [
+  { value: "multifamily",       label: "Multifamily" },
+  { value: "industrial",        label: "Industrial" },
+  { value: "mobile-home",       label: "Mobile Home / Manufactured Housing" },
+  { value: "self-storage",      label: "Self-Storage" },
+  { value: "parking",           label: "Parking" },
+  { value: "retail",            label: "Retail" },
+  { value: "office",            label: "Office" },
+  { value: "senior-living",     label: "Senior Living" },
+  { value: "student-housing",   label: "Student Housing" },
+  { value: "mixed-use",         label: "Mixed Use" },
+  { value: "development",       label: "Development" },
+  { value: "other",             label: "Other" },
+];
+
+const SELECT_CLASS =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+function invTypeLabel(inv) {
+  const type = INVESTMENT_TYPES.find(t => t.value === inv.investmentType)?.label;
+  if (!type) return null;
+  if (inv.investmentType === "real-estate" && inv.realEstateNiche) {
+    const niche = RE_NICHES.find(n => n.value === inv.realEstateNiche)?.label;
+    return niche ? `${type} — ${niche}` : type;
+  }
+  return type;
+}
 
 // ── Formatters ───────────────────────────────────────────────────────────────
 
@@ -81,6 +128,8 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
   const [sponsor, setSponsor] = useState("");
   const [vintage, setVintage] = useState("");
   const [committed, setCommitted] = useState("");
+  const [investmentType, setInvestmentType] = useState("");
+  const [realEstateNiche, setRealEstateNiche] = useState("");
   const [projectedIRR, setProjectedIRR] = useState("");
   const [preferredReturn, setPreferredReturn] = useState("");
   const [projectedCashOnCash, setProjectedCashOnCash] = useState("");
@@ -92,6 +141,8 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
 
   useEffect(() => {
     if (open) {
+      setInvestmentType(data?.investmentType ?? "");
+      setRealEstateNiche(data?.realEstateNiche ?? "");
       setName(data?.name ?? "");
       setSponsor(data?.sponsor ?? "");
       setVintage(data?.vintage != null ? String(data.vintage) : "");
@@ -129,6 +180,8 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
     const pct = (s) => (s !== "" ? parseFloat(s) / 100 : null);
     onSave({
       ...(isEdit ? { id: data.id } : {}),
+      investmentType: investmentType || null,
+      realEstateNiche: investmentType === "real-estate" ? (realEstateNiche || null) : null,
       name: name.trim(),
       sponsor: sponsor.trim() || null,
       vintage: vintage ? parseInt(vintage, 10) : null,
@@ -152,6 +205,35 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
 
         <div className="flex flex-col gap-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="inv-type">Type</Label>
+              <select
+                id="inv-type"
+                value={investmentType}
+                onChange={(e) => { setInvestmentType(e.target.value); setRealEstateNiche(""); }}
+                className={SELECT_CLASS}
+              >
+                <option value="">Select type</option>
+                {INVESTMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
+            {investmentType === "real-estate" && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="inv-niche">Niche</Label>
+                <select
+                  id="inv-niche"
+                  value={realEstateNiche}
+                  onChange={(e) => setRealEstateNiche(e.target.value)}
+                  className={SELECT_CLASS}
+                >
+                  <option value="">Select niche</option>
+                  {RE_NICHES.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
+                </select>
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="inv-name">Name *</Label>
@@ -219,7 +301,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="inv-coc">Cash-on-cash %</Label>
+              <Label htmlFor="inv-coc">Annual cash yield %</Label>
               <Input
                 id="inv-coc"
                 type="number"
@@ -232,7 +314,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="inv-coc-start">CoC start date</Label>
+              <Label htmlFor="inv-coc-start">Distributions start</Label>
               <Input
                 id="inv-coc-start"
                 type="date"
@@ -253,7 +335,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="inv-growth">CoC growth rate % / yr</Label>
+            <Label htmlFor="inv-growth">Annual distribution growth %</Label>
             <Input
               id="inv-growth"
               type="number"
@@ -437,6 +519,34 @@ function DeleteDialog({ open, title, description, onClose, onConfirm, confirming
   );
 }
 
+// ── MetricCell — label + value with optional tooltip ─────────────────────────
+
+function MetricCell({ label, value, tooltip, valueClassName = "text-sm font-medium" }) {
+  const labelEl = tooltip ? (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs text-muted-foreground underline decoration-dotted cursor-help w-fit">
+            {label}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    <span className="text-xs text-muted-foreground">{label}</span>
+  );
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {labelEl}
+      <span className={`font-mono tabular-nums ${valueClassName}`}>{value}</span>
+    </div>
+  );
+}
+
 // ── CashFlowRow ──────────────────────────────────────────────────────────────
 
 function CashFlowRow({ cf, onEdit, onDelete }) {
@@ -485,6 +595,9 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
                 {[inv.sponsor, inv.vintage].filter(Boolean).join(" · ")}
               </p>
             )}
+            {invTypeLabel(inv) && (
+              <p className="text-xs text-muted-foreground">{invTypeLabel(inv)}</p>
+            )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(inv)}>
@@ -505,17 +618,14 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
       <CardContent className="flex flex-col gap-4">
         {/* Metrics row */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
-            { label: "Committed", value: fmtUSD(inv.committed) },
-            { label: "Called", value: fmtUSD(m.totalCalled) },
-            { label: "Distributions", value: fmtUSD(m.totalDistributions) },
-            { label: "DPI", value: fmtDPI(m.dpi) },
-          ].map((item) => (
-            <div key={item.label} className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">{item.label}</span>
-              <span className="text-sm font-mono tabular-nums font-medium">{item.value}</span>
-            </div>
-          ))}
+          <MetricCell label="Committed" value={fmtUSD(inv.committed)} />
+          <MetricCell label="Called" value={fmtUSD(m.totalCalled)} />
+          <MetricCell label="Distributions" value={fmtUSD(m.totalDistributions)} />
+          <MetricCell
+            label="DPI"
+            value={fmtDPI(m.dpi)}
+            tooltip="Distributions to Paid-In Capital — total distributions divided by total capital called. Above 1× means you've received more cash than you invested."
+          />
         </div>
 
         {/* IRR comparison strip */}
@@ -540,7 +650,7 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
         {(inv.projectedCashOnCash != null || inv.preferredReturn != null || inv.projectedHoldYears != null) && (
           <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
             <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">Cash-on-cash</span>
+              <span className="text-xs text-muted-foreground">Annual cash yield</span>
               <span className="text-sm font-mono tabular-nums">
                 {inv.projectedCashOnCash != null ? (inv.projectedCashOnCash * 100).toFixed(1) + "%" : "—"}
               </span>
@@ -622,22 +732,23 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
 // ── PortfolioSummary ─────────────────────────────────────────────────────────
 
 function PortfolioSummary({ portfolio }) {
-  const items = [
-    { label: "Total Committed", value: fmtUSD(portfolio.totalCommitted) },
-    { label: "Total Called", value: fmtUSD(portfolio.totalCalled) },
-    { label: "Distributions", value: fmtUSD(portfolio.totalDistributions) },
-    { label: "DPI", value: fmtDPI(portfolio.portfolioDPI) },
-    { label: "Blended IRR", value: fmtIRR(portfolio.blendedIRR) },
-  ];
-
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-5 rounded-xl bg-muted/40 p-4">
-      {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-0.5">
-          <span className="text-xs text-muted-foreground">{item.label}</span>
-          <span className="text-base font-mono tabular-nums font-semibold">{item.value}</span>
-        </div>
-      ))}
+      <MetricCell label="Total Committed" value={fmtUSD(portfolio.totalCommitted)} valueClassName="text-base font-semibold" />
+      <MetricCell label="Total Called" value={fmtUSD(portfolio.totalCalled)} valueClassName="text-base font-semibold" />
+      <MetricCell label="Distributions" value={fmtUSD(portfolio.totalDistributions)} valueClassName="text-base font-semibold" />
+      <MetricCell
+        label="DPI"
+        value={fmtDPI(portfolio.portfolioDPI)}
+        tooltip="Distributions to Paid-In Capital — total distributions divided by total capital called across all investments."
+        valueClassName="text-base font-semibold"
+      />
+      <MetricCell
+        label="Blended IRR"
+        value={fmtIRR(portfolio.blendedIRR)}
+        tooltip="XIRR computed across all cash flows from every investment combined. Shows — until at least one distribution has been received."
+        valueClassName="text-base font-semibold"
+      />
     </div>
   );
 }

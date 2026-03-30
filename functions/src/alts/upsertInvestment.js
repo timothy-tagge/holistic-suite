@@ -14,6 +14,9 @@ function sanitize(inv) {
     cocStartDate: inv.cocStartDate ? String(inv.cocStartDate) : null,
     projectedHoldYears: inv.projectedHoldYears != null ? Number(inv.projectedHoldYears) : null,
     cocGrowthRate: inv.cocGrowthRate != null ? Number(inv.cocGrowthRate) : null,
+    investmentType: inv.investmentType ? String(inv.investmentType) : null,
+    realEstateNiche: inv.investmentType === "real-estate" && inv.realEstateNiche
+      ? String(inv.realEstateNiche) : null,
     status: inv.status === "realized" ? "realized" : "active",
     currentNAV: null, // reserved for future
   };
