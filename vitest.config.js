@@ -11,7 +11,13 @@ export default defineConfig({
         functions: 80,
         lines: 80,
       },
-      include: ["src/utils/**", "functions/src/**"],
+      include: [
+        "src/utils/**",
+        "src/lib/**",
+        "functions/src/shared/xirr.js",
+        "functions/src/shared/monteCarlo.js",
+        "functions/src/alts/helpers.js",
+      ],
     },
   },
   resolve: {

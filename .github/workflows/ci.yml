@@ -42,6 +42,14 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
 
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Smoke tests (Playwright)
+        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_BASE_URL: https://holistic-suite.web.app
+
   deploy:
     name: Deploy
     needs: ci
