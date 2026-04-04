@@ -79,6 +79,26 @@ Secret Manager to stay within the existing toolset.
 Plaid is the primary cost driver. Model this against any monetization plan before
 committing to a Production launch timeline.
 
+### Monetization dependency
+
+**Personal use:** The Development tier supports up to 100 Items at no cost. For personal
+use (3–5 connected accounts) this is free indefinitely — no Production upgrade needed,
+no revenue required.
+
+**Multi-user:** Crossing 100 Items triggers Production pricing (~$1–$2/Item/month).
+At that point the app needs revenue to cover costs. Options:
+
+- **Subscription** ($8–$15/month): the most common model for personal finance tools.
+  At $10/month, 20 paying users cover 200 Items of Plaid cost with margin left over.
+- **Freemium**: manual entry stays free; Plaid-connected sync is a paid feature.
+  This matches user expectations (Copilot, Monarch all charge for live sync) and
+  makes the value exchange clear.
+- **Invite-only / private**: stay under 100 Items permanently by keeping the app
+  private. No monetization needed; no Production upgrade ever triggered.
+
+The freemium path aligns best with this app's existing structure — manual import
+already works, Plaid is an upgrade on top of it.
+
 ---
 
 ## Problem

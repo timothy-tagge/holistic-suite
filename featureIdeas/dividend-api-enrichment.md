@@ -54,6 +54,18 @@ all subsequent users that day get it from Firestore at zero FMP cost.
 - Firestore reads/writes for the enrichment cache are negligible at this scale
 - No additional Firebase plan upgrade required
 
+### Monetization dependency
+
+**Personal use:** The free tier (250 calls/day) is likely sufficient for a single user.
+If the portfolio grows beyond ~80 unique tickers, upgrade to Starter ($19/month) — still
+a trivial personal expense.
+
+**Multi-user:** FMP Starter ($19/month) covers the shared cache up to roughly 500 users
+before call volume warrants moving to Professional. At that scale the app needs revenue.
+Typical approach: gate the Dividend Health enrichment section behind a paid plan tier
+(e.g. $8–$12/month), keeping basic payment tracking free. The $19 FMP cost is easily
+covered by a handful of paying subscribers.
+
 ---
 
 ## Problem
