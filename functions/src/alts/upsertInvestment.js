@@ -10,13 +10,17 @@ function sanitize(inv) {
     committed: Number(inv.committed),
     projectedIRR: inv.projectedIRR != null ? Number(inv.projectedIRR) : null,
     preferredReturn: inv.preferredReturn != null ? Number(inv.preferredReturn) : null,
-    projectedCashOnCash: inv.projectedCashOnCash != null ? Number(inv.projectedCashOnCash) : null,
+    projectedCashOnCash:
+      inv.projectedCashOnCash != null ? Number(inv.projectedCashOnCash) : null,
     cocStartDate: inv.cocStartDate ? String(inv.cocStartDate) : null,
-    projectedHoldYears: inv.projectedHoldYears != null ? Number(inv.projectedHoldYears) : null,
+    projectedHoldYears:
+      inv.projectedHoldYears != null ? Number(inv.projectedHoldYears) : null,
     cocGrowthRate: inv.cocGrowthRate != null ? Number(inv.cocGrowthRate) : null,
     investmentType: inv.investmentType ? String(inv.investmentType) : null,
-    realEstateNiche: inv.investmentType === "real-estate" && inv.realEstateNiche
-      ? String(inv.realEstateNiche) : null,
+    realEstateNiche:
+      inv.investmentType === "real-estate" && inv.realEstateNiche
+        ? String(inv.realEstateNiche)
+        : null,
     status: inv.status === "realized" ? "realized" : "active",
     currentNAV: null, // reserved for future
   };
@@ -27,8 +31,10 @@ export const altsUpsertInvestment = onCall({ cors: true }, async (request) => {
   const { uid } = request.auth;
   const { investment } = request.data ?? {};
 
-  if (!investment?.name?.trim()) throw new HttpsError("invalid-argument", "Name is required.");
-  if (!investment.committed || investment.committed <= 0) throw new HttpsError("invalid-argument", "Committed capital must be positive.");
+  if (!investment?.name?.trim())
+    throw new HttpsError("invalid-argument", "Name is required.");
+  if (!investment.committed || investment.committed <= 0)
+    throw new HttpsError("invalid-argument", "Committed capital must be positive.");
 
   const db = getFirestore();
   const ref = db.collection("alts-plans").doc(uid);
@@ -43,19 +49,33 @@ export const altsUpsertInvestment = onCall({ cors: true }, async (request) => {
       name: "My Alts Portfolio",
       createdAt: now,
       updatedAt: now,
-      investments: [{ id: newId, ...sanitize(investment), cashFlows: [], createdAt: now, updatedAt: now }],
+      investments: [
+        {
+          id: newId,
+          ...sanitize(investment),
+          cashFlows: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
     };
     await ref.set(plan);
   } else {
     plan = snap.data();
     const investments = plan.investments ?? [];
     if (investment.id) {
-      const idx = investments.findIndex(i => i.id === investment.id);
+      const idx = investments.findIndex((i) => i.id === investment.id);
       if (idx === -1) throw new HttpsError("not-found", "Investment not found.");
       investments[idx] = { ...investments[idx], ...sanitize(investment), updatedAt: now };
     } else {
       const newId = db.collection("_").doc().id;
-      investments.push({ id: newId, ...sanitize(investment), cashFlows: [], createdAt: now, updatedAt: now });
+      investments.push({
+        id: newId,
+        ...sanitize(investment),
+        cashFlows: [],
+        createdAt: now,
+        updatedAt: now,
+      });
     }
     plan = { ...plan, investments, updatedAt: now };
     await ref.update({ investments: plan.investments, updatedAt: now });

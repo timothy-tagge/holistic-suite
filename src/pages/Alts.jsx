@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -20,12 +20,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Layers, Pencil, Trash2, ChevronDown, ChevronUp, Plus, Loader2 } from "lucide-react";
+import {
+  Layers,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Loader2,
+} from "lucide-react";
 import {
   ComposedChart,
   Bar,
+  Cell,
   LabelList,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -35,7 +45,9 @@ import {
   Legend,
 } from "recharts";
 import { parseFormatted, formatWithCommas } from "@/lib/formatNumber";
-import { buildProjection } from "@/utils/altsProjection";
+import { buildProjection, buildMonteCarloProjection } from "@/utils/altsProjection";
+import { SampleDataButton } from "@/components/SampleDataButton";
+import { getAltsSamples } from "@/data/samples/altsSamples";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -45,44 +57,47 @@ const CF_TYPE_LABELS = {
   "distribution-roc": "Distribution — return of capital",
   exit: "Exit proceeds",
 };
-const CF_TYPES = Object.entries(CF_TYPE_LABELS).map(([value, label]) => ({ value, label }));
+const CF_TYPES = Object.entries(CF_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const INVESTMENT_TYPES = [
-  { value: "real-estate",     label: "Real Estate" },
-  { value: "private-equity",  label: "Private Equity" },
+  { value: "real-estate", label: "Real Estate" },
+  { value: "private-equity", label: "Private Equity" },
   { value: "venture-capital", label: "Venture Capital" },
-  { value: "private-credit",  label: "Private Credit" },
-  { value: "hedge-fund",      label: "Hedge Fund" },
-  { value: "energy",          label: "Energy" },
-  { value: "notes",           label: "Notes / Promissory Notes" },
-  { value: "legal",           label: "Legal Finance" },
-  { value: "development",     label: "Development" },
-  { value: "other",           label: "Other" },
+  { value: "private-credit", label: "Private Credit" },
+  { value: "hedge-fund", label: "Hedge Fund" },
+  { value: "energy", label: "Energy" },
+  { value: "notes", label: "Notes / Promissory Notes" },
+  { value: "legal", label: "Legal Finance" },
+  { value: "development", label: "Development" },
+  { value: "other", label: "Other" },
 ];
 
 const RE_NICHES = [
-  { value: "multifamily",       label: "Multifamily" },
-  { value: "industrial",        label: "Industrial" },
-  { value: "mobile-home",       label: "Mobile Home / Manufactured Housing" },
-  { value: "self-storage",      label: "Self-Storage" },
-  { value: "parking",           label: "Parking" },
-  { value: "retail",            label: "Retail" },
-  { value: "office",            label: "Office" },
-  { value: "senior-living",     label: "Senior Living" },
-  { value: "student-housing",   label: "Student Housing" },
-  { value: "mixed-use",         label: "Mixed Use" },
-  { value: "development",       label: "Development" },
-  { value: "other",             label: "Other" },
+  { value: "multifamily", label: "Multifamily" },
+  { value: "industrial", label: "Industrial" },
+  { value: "mobile-home", label: "Mobile Home / Manufactured Housing" },
+  { value: "self-storage", label: "Self-Storage" },
+  { value: "parking", label: "Parking" },
+  { value: "retail", label: "Retail" },
+  { value: "office", label: "Office" },
+  { value: "senior-living", label: "Senior Living" },
+  { value: "student-housing", label: "Student Housing" },
+  { value: "mixed-use", label: "Mixed Use" },
+  { value: "development", label: "Development" },
+  { value: "other", label: "Other" },
 ];
 
 const SELECT_CLASS =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "flex h-9 w-full rounded-md border border-input bg-background text-foreground px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 function invTypeLabel(inv) {
-  const type = INVESTMENT_TYPES.find(t => t.value === inv.investmentType)?.label;
+  const type = INVESTMENT_TYPES.find((t) => t.value === inv.investmentType)?.label;
   if (!type) return null;
   if (inv.investmentType === "real-estate" && inv.realEstateNiche) {
-    const niche = RE_NICHES.find(n => n.value === inv.realEstateNiche)?.label;
+    const niche = RE_NICHES.find((n) => n.value === inv.realEstateNiche)?.label;
     return niche ? `${type} — ${niche}` : type;
   }
   return type;
@@ -106,7 +121,9 @@ function fmtDelta(computed, projected) {
 }
 function deltaClass(computed, projected) {
   if (computed == null || projected == null) return "text-muted-foreground";
-  return computed >= projected ? "text-green-700 dark:text-green-400" : "text-destructive";
+  return computed >= projected
+    ? "text-green-700 dark:text-green-400"
+    : "text-destructive";
 }
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -155,23 +172,32 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInvestmentType(data?.investmentType ?? "");
       setRealEstateNiche(data?.realEstateNiche ?? "");
       setName(data?.name ?? "");
       setSponsor(data?.sponsor ?? "");
       setVintage(data?.vintage != null ? String(data.vintage) : "");
-      setCommitted(data?.committed != null ? formatWithCommas(String(data.committed)) : "");
+      setCommitted(
+        data?.committed != null ? formatWithCommas(String(data.committed)) : ""
+      );
       setProjectedIRR(
         data?.projectedIRR != null ? String((data.projectedIRR * 100).toFixed(1)) : ""
       );
       setPreferredReturn(
-        data?.preferredReturn != null ? String((data.preferredReturn * 100).toFixed(1)) : ""
+        data?.preferredReturn != null
+          ? String((data.preferredReturn * 100).toFixed(1))
+          : ""
       );
       setProjectedCashOnCash(
-        data?.projectedCashOnCash != null ? String((data.projectedCashOnCash * 100).toFixed(1)) : ""
+        data?.projectedCashOnCash != null
+          ? String((data.projectedCashOnCash * 100).toFixed(1))
+          : ""
       );
       setCocStartDate(data?.cocStartDate ?? "");
-      setProjectedHoldYears(data?.projectedHoldYears != null ? String(data.projectedHoldYears) : "");
+      setProjectedHoldYears(
+        data?.projectedHoldYears != null ? String(data.projectedHoldYears) : ""
+      );
       setCocGrowthRate(
         data?.cocGrowthRate != null ? String((data.cocGrowthRate * 100).toFixed(1)) : ""
       );
@@ -195,7 +221,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
     onSave({
       ...(isEdit ? { id: data.id } : {}),
       investmentType: investmentType || null,
-      realEstateNiche: investmentType === "real-estate" ? (realEstateNiche || null) : null,
+      realEstateNiche: investmentType === "real-estate" ? realEstateNiche || null : null,
       name: name.trim(),
       sponsor: sponsor.trim() || null,
       vintage: vintage ? parseInt(vintage, 10) : null,
@@ -211,7 +237,12 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit investment" : "Add investment"}</DialogTitle>
@@ -220,17 +251,24 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
         <div className="flex flex-col gap-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-type">Type</Label>
               <select
                 id="inv-type"
                 value={investmentType}
-                onChange={(e) => { setInvestmentType(e.target.value); setRealEstateNiche(""); }}
+                onChange={(e) => {
+                  setInvestmentType(e.target.value);
+                  setRealEstateNiche("");
+                }}
                 className={SELECT_CLASS}
               >
                 <option value="">Select type</option>
-                {INVESTMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {INVESTMENT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
               </select>
             </div>
             {investmentType === "real-estate" && (
@@ -243,7 +281,11 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
                   className={SELECT_CLASS}
                 >
                   <option value="">Select niche</option>
-                  {RE_NICHES.map(n => <option key={n.value} value={n.value}>{n.label}</option>)}
+                  {RE_NICHES.map((n) => (
+                    <option key={n.value} value={n.value}>
+                      {n.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -269,7 +311,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-vintage">Vintage year</Label>
               <Input
@@ -303,7 +345,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-pref">Preferred return %</Label>
               <Input
@@ -326,7 +368,7 @@ function InvestmentDialog({ open, data, onClose, onSave, saving }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-coc-start">Distributions start</Label>
               <Input
@@ -407,6 +449,7 @@ function CashFlowDialog({ open, data, onClose, onSave, saving }) {
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDate(data?.date ?? "");
       setType(data?.type ?? "call");
       setAmount(data?.amount != null ? formatWithCommas(String(data.amount)) : "");
@@ -436,7 +479,12 @@ function CashFlowDialog({ open, data, onClose, onSave, saving }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit cash flow" : "Add cash flow"}</DialogTitle>
@@ -514,7 +562,12 @@ function CashFlowDialog({ open, data, onClose, onSave, saving }) {
 
 function DeleteDialog({ open, title, description, onClose, onConfirm, confirming }) {
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -571,15 +624,27 @@ function CashFlowRow({ cf, onEdit, onDelete }) {
         {fmtDate(cf.date)}
       </td>
       <td className="py-2 pr-4 text-sm">{CF_TYPE_LABELS[cf.type] ?? cf.type}</td>
-      <td className={`py-2 pr-4 text-sm font-mono tabular-nums ${isCall ? "text-destructive" : "text-green-700 dark:text-green-400"}`}>
+      <td
+        className={`py-2 pr-4 text-sm font-mono tabular-nums ${isCall ? "text-destructive" : "text-green-700 dark:text-green-400"}`}
+      >
         {isCall ? `(${fmtUSD(cf.amount)})` : fmtUSD(cf.amount)}
       </td>
       <td className="py-2 pr-4 text-xs text-muted-foreground">{cf.note ?? ""}</td>
       <td className="py-2 text-right whitespace-nowrap">
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(cf)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => onEdit(cf)}
+        >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(cf)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-destructive hover:text-destructive"
+          onClick={() => onDelete(cf)}
+        >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </td>
@@ -589,7 +654,16 @@ function CashFlowRow({ cf, onEdit, onDelete }) {
 
 // ── InvestmentCard ───────────────────────────────────────────────────────────
 
-function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAddCF, onEditCF, onDeleteCF }) {
+function InvestmentCard({
+  inv,
+  expanded,
+  onToggleExpand,
+  onEdit,
+  onDelete,
+  onAddCF,
+  onEditCF,
+  onDeleteCF,
+}) {
   const m = inv.metrics;
   const cfCount = (inv.cashFlows ?? []).length;
 
@@ -614,7 +688,12 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(inv)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onEdit(inv)}
+            >
               <Pencil className="h-4 w-4" />
             </Button>
             <Button
@@ -643,30 +722,40 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
         </div>
 
         {/* IRR comparison strip */}
-        <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Projected IRR</span>
-            <span className="text-sm font-mono tabular-nums">{fmtIRR(inv.projectedIRR)}</span>
+            <span className="text-sm font-mono tabular-nums">
+              {fmtIRR(inv.projectedIRR)}
+            </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Actual IRR</span>
-            <span className="text-sm font-mono tabular-nums">{fmtIRR(m.computedIRR)}</span>
+            <span className="text-sm font-mono tabular-nums">
+              {fmtIRR(m.computedIRR)}
+            </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Delta</span>
-            <span className={`text-sm font-mono tabular-nums ${deltaClass(m.computedIRR, inv.projectedIRR)}`}>
+            <span
+              className={`text-sm font-mono tabular-nums ${deltaClass(m.computedIRR, inv.projectedIRR)}`}
+            >
               {fmtDelta(m.computedIRR, inv.projectedIRR)}
             </span>
           </div>
         </div>
 
         {/* Projection strip — only when at least one projection field is set */}
-        {(inv.projectedCashOnCash != null || inv.preferredReturn != null || inv.projectedHoldYears != null) && (
-          <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
+        {(inv.projectedCashOnCash != null ||
+          inv.preferredReturn != null ||
+          inv.projectedHoldYears != null) && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 rounded-lg bg-muted/40 p-3">
             <div className="flex flex-col gap-0.5">
               <span className="text-xs text-muted-foreground">Annual cash yield</span>
               <span className="text-sm font-mono tabular-nums">
-                {inv.projectedCashOnCash != null ? (inv.projectedCashOnCash * 100).toFixed(1) + "%" : "—"}
+                {inv.projectedCashOnCash != null
+                  ? (inv.projectedCashOnCash * 100).toFixed(1) + "%"
+                  : "—"}
               </span>
               {m.projectedAnnualDistribution != null && (
                 <span className="text-xs text-muted-foreground">
@@ -677,7 +766,9 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
             <div className="flex flex-col gap-0.5">
               <span className="text-xs text-muted-foreground">Preferred return</span>
               <span className="text-sm font-mono tabular-nums">
-                {inv.preferredReturn != null ? (inv.preferredReturn * 100).toFixed(1) + "%" : "—"}
+                {inv.preferredReturn != null
+                  ? (inv.preferredReturn * 100).toFixed(1) + "%"
+                  : "—"}
               </span>
               {inv.cocStartDate && (
                 <span className="text-xs text-muted-foreground">
@@ -693,7 +784,9 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
               {m.projectedExitYear != null && (
                 <span className="text-xs text-muted-foreground">
                   exits ~{m.projectedExitYear}
-                  {inv.cocGrowthRate ? ` · +${(inv.cocGrowthRate * 100).toFixed(1)}%/yr` : ""}
+                  {inv.cocGrowthRate
+                    ? ` · +${(inv.cocGrowthRate * 100).toFixed(1)}%/yr`
+                    : ""}
                 </span>
               )}
             </div>
@@ -707,8 +800,14 @@ function InvestmentCard({ inv, expanded, onToggleExpand, onEdit, onDelete, onAdd
           className="self-start -ml-2 text-muted-foreground"
           onClick={onToggleExpand}
         >
-          {expanded ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
-          {cfCount === 0 ? "No cash flows" : `${cfCount} cash flow${cfCount !== 1 ? "s" : ""}`}
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 mr-1" />
+          ) : (
+            <ChevronDown className="h-4 w-4 mr-1" />
+          )}
+          {cfCount === 0
+            ? "No cash flows"
+            : `${cfCount} cash flow${cfCount !== 1 ? "s" : ""}`}
         </Button>
 
         {/* Expanded cash flows */}
@@ -754,25 +853,36 @@ function fmtCompact(n) {
 
 function ProjectionChartTooltip({ active, payload, label, totalCommitted }) {
   if (!active || !payload?.length) return null;
-  const dist = payload.find(p => p.dataKey === "distributions")?.value ?? 0;
-  const nav = payload.find(p => p.dataKey === "portfolioNAV")?.value ?? 0;
-  const cumulative = payload.find(p => p.dataKey === "cumulative")?.value ?? 0;
-  // exits array lives on the data point itself
-  const exits = payload[0]?.payload?.exits ?? [];
+  const data = payload[0]?.payload ?? {};
+  const nav = data.portfolioNAV ?? 0;
+  const cumulative = data.cumulative ?? 0;
+  const totalValue = data.totalValue ?? 0;
+  const exits = data.exits ?? [];
   const totalExitProceeds = exits.reduce((s, e) => s + e.proceeds, 0);
+  // Sum per-investment dist fields for this year
+  const dist = Object.entries(data)
+    .filter(([k]) => k.startsWith("dist_"))
+    .reduce((s, [, v]) => s + v, 0);
 
   return (
-    <div className="rounded-lg border border-border bg-background p-3 text-xs shadow-lg min-w-48">
+    <div className="rounded-lg border border-border bg-background p-3 text-xs shadow-lg min-w-52">
       <p className="font-semibold mb-2">{label}</p>
+      {totalValue > 0 && (
+        <div className="flex justify-between gap-4 font-medium">
+          <span className="text-muted-foreground">Total value</span>
+          <span className="font-mono">{fmtUSD(totalValue)}</span>
+        </div>
+      )}
+      <div className="my-1 border-t border-border" />
       {nav > 0 && (
         <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">Portfolio value</span>
-          <span className="font-mono font-medium">{fmtUSD(nav)}</span>
+          <span className="text-muted-foreground">Paper NAV</span>
+          <span className="font-mono">{fmtUSD(nav)}</span>
         </div>
       )}
       {dist > 0 && (
         <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">Cash yield</span>
+          <span className="text-muted-foreground">Cash yield this yr</span>
           <span className="font-mono">{fmtUSD(dist)}</span>
         </div>
       )}
@@ -793,52 +903,139 @@ function ProjectionChartTooltip({ active, payload, label, totalCommitted }) {
           )}
         </div>
       )}
-      <div className="flex justify-between gap-4 mt-1 pt-1 border-t border-border">
-        <span className="text-muted-foreground">Cumulative cash</span>
-        <span className={`font-mono font-medium ${cumulative >= totalCommitted ? "text-green-700 dark:text-green-400" : ""}`}>
-          {fmtUSD(cumulative)}
-        </span>
-      </div>
-      {totalCommitted > 0 && (
+      <div className="mt-1 pt-1 border-t border-border flex flex-col gap-0.5">
         <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">Total committed</span>
-          <span className="font-mono text-muted-foreground">{fmtUSD(totalCommitted)}</span>
+          <span className="text-muted-foreground">Cumulative cash</span>
+          <span
+            className={`font-mono ${cumulative >= totalCommitted ? "text-green-700 dark:text-green-400" : ""}`}
+          >
+            {fmtUSD(cumulative)}
+          </span>
         </div>
-      )}
+        {totalCommitted > 0 && (
+          <div className="flex justify-between gap-4">
+            <span className="text-muted-foreground">Total committed</span>
+            <span className="font-mono text-muted-foreground">
+              {fmtUSD(totalCommitted)}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// Colors used in the projection chart — kept in one place for consistency.
-const CHART_COLORS = {
-  distributions: "hsl(var(--primary))",      // green — ongoing income
-  exitProceeds:  "hsl(var(--chart-3))",       // amber — terminal capital event
-  portfolioNAV:  "hsl(var(--chart-4))",       // muted blue/violet — paper value line
-  committed:     "hsl(var(--muted-foreground))",
+function MonteCarloBandTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const data = payload[0]?.payload ?? {};
+  return (
+    <div className="rounded-lg border border-border bg-background p-3 text-xs shadow-lg min-w-44">
+      <p className="font-semibold mb-2">{label}</p>
+      <div className="flex justify-between gap-4">
+        <span className="text-muted-foreground">Optimistic (p90)</span>
+        <span className="font-mono">{fmtUSD(data.p90)}</span>
+      </div>
+      <div className="flex justify-between gap-4 font-medium">
+        <span className="text-muted-foreground">Base case (p50)</span>
+        <span className="font-mono">{fmtUSD(data.p50)}</span>
+      </div>
+      <div className="flex justify-between gap-4">
+        <span className="text-muted-foreground">Conservative (p10)</span>
+        <span className="font-mono">{fmtUSD(data.p10)}</span>
+      </div>
+    </div>
+  );
+}
+
+// Visually distinct colors for per-investment bars. oklch mid-lightness works
+// in both light and dark mode without relying on CSS chart vars (which are all olive here).
+const INVESTMENT_PALETTE = [
+  "oklch(0.54 0.19 142)", // green
+  "oklch(0.58 0.18 222)", // blue
+  "oklch(0.64 0.20 50)", // orange
+  "oklch(0.53 0.17 280)", // purple
+  "oklch(0.60 0.22 15)", // red
+  "oklch(0.60 0.17 185)", // teal
+  "oklch(0.58 0.18 310)", // pink
+  "oklch(0.63 0.17 88)", // yellow-green
+];
+
+// Fixed oklch values for chart SVG attributes (CSS variables don't resolve inside SVG fill/stroke).
+// Two sets: light and dark. ProjectionChart reads current theme via useDarkMode().
+const CHART_COLORS_LIGHT = {
+  exitAmber: "oklch(0.72 0.17 65)",
+  totalValue: "oklch(0.48 0.20 140)", // dark green — total portfolio value line
+  portfolioNAV: "oklch(0.55 0.18 222)", // blue — paper-only NAV line (secondary)
+  muted: "oklch(0.58 0.031 107.3)", // --muted-foreground light
+  grid: "oklch(0.87 0.007 106.5)",
+  cursor: "oklch(0.93 0.005 106.5)",
+};
+const CHART_COLORS_DARK = {
+  exitAmber: "oklch(0.78 0.17 65)",
+  totalValue: "oklch(0.68 0.20 140)", // lighter green for dark mode
+  portfolioNAV: "oklch(0.68 0.18 222)",
+  muted: "oklch(0.74 0.021 106.9)",
+  grid: "oklch(0.30 0.01 107)",
+  cursor: "oklch(0.28 0.016 107.4)",
 };
 
+function useDarkMode() {
+  const [dark, setDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setDark(document.documentElement.classList.contains("dark"))
+    );
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => obs.disconnect();
+  }, []);
+  return dark;
+}
+
 function ProjectionChart({ investments, totalCommitted }) {
-  const rows = buildProjection(investments);
+  const isDark = useDarkMode();
+  const C = isDark ? CHART_COLORS_DARK : CHART_COLORS_LIGHT;
+  const active = (investments ?? []).filter((inv) => inv.status === "active");
+
+  const rows = useMemo(() => buildProjection(investments), [investments]);
+  const mcRows = useMemo(() => buildMonteCarloProjection(investments), [investments]);
+
+  // Merge MC percentile data into projection rows by year so one ComposedChart handles all series.
+  const chartData = useMemo(() => {
+    const mcMap = new Map(mcRows.map((r) => [r.year, r]));
+    return rows.map((row) => ({ ...row, ...(mcMap.get(row.year) ?? {}) }));
+  }, [rows, mcRows]);
 
   if (!rows.length) {
     return (
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Projected cash flows</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Projected cash flows
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Add projected cash yield % and distributions start date to an investment to see projections.
+            Add projected cash yield % and distributions start date to an investment to
+            see projections.
           </p>
         </CardContent>
       </Card>
     );
   }
 
-  // Years where an investment exits — used to style X-axis ticks differently.
-  const exitYears = new Set(rows.filter(r => r.exitProceeds > 0).map(r => r.year));
+  // Map investment id → palette color (stable per investment position).
+  const invColor = {};
+  active.forEach((inv, i) => {
+    invColor[inv.id] = INVESTMENT_PALETTE[i % INVESTMENT_PALETTE.length];
+  });
 
-  // Custom X-axis tick: exit years get an amber label + "↑ exit" annotation below.
+  const exitYears = new Set(rows.filter((r) => r.exitProceeds > 0).map((r) => r.year));
+
   function renderXTick({ x, y, payload }) {
     const isExit = exitYears.has(payload.value);
     return (
@@ -848,12 +1045,12 @@ function ProjectionChart({ investments, totalCommitted }) {
           textAnchor="middle"
           fontSize={11}
           fontWeight={isExit ? "600" : "400"}
-          fill={isExit ? CHART_COLORS.exitProceeds : CHART_COLORS.committed}
+          fill={isExit ? C.exitAmber : C.muted}
         >
           {payload.value}
         </text>
         {isExit && (
-          <text dy={24} textAnchor="middle" fontSize={9} fill={CHART_COLORS.exitProceeds}>
+          <text dy={24} textAnchor="middle" fontSize={9} fill={C.exitAmber}>
             ↑ exit
           </text>
         )}
@@ -861,15 +1058,34 @@ function ProjectionChart({ investments, totalCommitted }) {
     );
   }
 
+  const hasMC = mcRows.length > 0;
+  const legendPayload = [
+    ...active.map((inv, i) => ({
+      value: inv.name,
+      type: "square",
+      color: INVESTMENT_PALETTE[i % INVESTMENT_PALETTE.length],
+    })),
+    { value: "Total value", type: "line", color: C.totalValue },
+    ...(hasMC
+      ? [{ value: "p10–p90 range", type: "square", color: C.totalValue, opacity: 0.15 }]
+      : []),
+    { value: "Paper NAV", type: "line", color: C.portfolioNAV },
+  ];
+
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">Projected cash flows</CardTitle>
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          Projected cash flows
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={260}>
-          <ComposedChart data={rows} margin={{ top: 16, right: 16, bottom: 16, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+        <ResponsiveContainer width="100%" height={300}>
+          <ComposedChart
+            data={chartData}
+            margin={{ top: 16, right: 16, bottom: 16, left: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke={C.grid} vertical={false} />
             <XAxis
               dataKey="year"
               tick={renderXTick}
@@ -879,58 +1095,171 @@ function ProjectionChart({ investments, totalCommitted }) {
             />
             <YAxis
               tickFormatter={fmtCompact}
-              tick={{ fontSize: 11, fill: CHART_COLORS.committed }}
+              tick={{ fontSize: 12, fill: C.muted }}
               axisLine={false}
               tickLine={false}
               width={52}
             />
             <RechartsTooltip
               content={<ProjectionChartTooltip totalCommitted={totalCommitted} />}
-              cursor={{ fill: "hsl(var(--muted))" }}
+              cursor={{ fill: C.cursor }}
             />
             <Legend
-              wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
-              formatter={(value) => ({
-                distributions: "Cash yield",
-                exitProceeds:  "Exit proceeds",
-                portfolioNAV:  "Portfolio value",
-              }[value] ?? value)}
+              payload={legendPayload}
+              wrapperStyle={{ fontSize: 12, paddingTop: 4 }}
             />
             {totalCommitted > 0 && (
               <ReferenceLine
                 y={totalCommitted}
-                stroke={CHART_COLORS.committed}
+                stroke={C.muted}
                 strokeDasharray="4 4"
                 label={{
                   value: "Committed",
                   position: "insideTopRight",
                   fontSize: 10,
-                  fill: CHART_COLORS.committed,
+                  fill: C.muted,
                 }}
               />
             )}
-            <Bar dataKey="distributions" stackId="a" fill={CHART_COLORS.distributions} radius={[0, 0, 3, 3]} />
-            <Bar dataKey="exitProceeds" stackId="a" fill={CHART_COLORS.exitProceeds} radius={[3, 3, 0, 0]}>
-              <LabelList
-                dataKey="exitLabel"
-                position="top"
-                style={{ fontSize: 9, fontWeight: 600, fill: CHART_COLORS.exitProceeds }}
+
+            {/* Monte Carlo confidence band: stacked Areas from p10 up to p90 */}
+            {hasMC && (
+              <Area
+                dataKey="p10"
+                stackId="mc"
+                fill="transparent"
+                stroke="none"
+                legendType="none"
+                isAnimationActive={false}
+                dot={false}
               />
-            </Bar>
+            )}
+            {hasMC && (
+              <Area
+                dataKey="bandHeight"
+                stackId="mc"
+                fill={C.totalValue}
+                fillOpacity={0.12}
+                stroke="none"
+                legendType="none"
+                isAnimationActive={false}
+                dot={false}
+              />
+            )}
+
+            {/* Per-investment distribution bars */}
+            {active.map((inv) => (
+              <Bar
+                key={`d_${inv.id}`}
+                dataKey={`dist_${inv.id}`}
+                stackId="a"
+                fill={invColor[inv.id]}
+                legendType="none"
+                isAnimationActive={false}
+              />
+            ))}
+
+            {/* Per-investment exit bars stacked on top, same color as their dist bars */}
+            {active.map((inv, i) => (
+              <Bar
+                key={`e_${inv.id}`}
+                dataKey={`exit_${inv.id}`}
+                stackId="a"
+                fill={invColor[inv.id]}
+                legendType="none"
+                isAnimationActive={false}
+                radius={i === active.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+              >
+                {i === active.length - 1 && (
+                  <LabelList
+                    dataKey="exitLabel"
+                    position="top"
+                    style={{ fontSize: 9, fontWeight: 600, fill: C.exitAmber }}
+                  />
+                )}
+              </Bar>
+            ))}
+
+            {/* Total value: NAV + all cash received — stays intact through exits */}
+            <Line
+              dataKey="totalValue"
+              name="Total value"
+              type="monotone"
+              stroke={C.totalValue}
+              strokeWidth={2.5}
+              dot={false}
+              legendType="none"
+              isAnimationActive={false}
+            />
+
+            {/* Paper NAV: active investments only — drops as investments exit */}
             <Line
               dataKey="portfolioNAV"
+              name="Paper NAV"
               type="monotone"
-              stroke={CHART_COLORS.portfolioNAV}
-              strokeWidth={2}
+              stroke={C.portfolioNAV}
+              strokeWidth={1.5}
               dot={false}
-              strokeDasharray="6 3"
+              strokeDasharray="5 3"
+              legendType="none"
+              isAnimationActive={false}
             />
           </ComposedChart>
         </ResponsiveContainer>
         <p className="text-xs text-muted-foreground mt-1">
-          Amber bars and labels = exit year (capital return estimated from projected IRR).
-          Dashed line = portfolio paper value. Dashed horizontal = total committed.
+          Bars = per-investment annual cash yield. Solid green line = total value (paper +
+          cash — exits convert to cash, not lost). Shaded band = p10–p90 range across 500
+          simulations. Dashed blue = paper NAV of active positions only.
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── MonteCarloSummaryCard ────────────────────────────────────────────────────
+
+function MonteCarloSummaryCard({ investments }) {
+  const mcRows = useMemo(() => buildMonteCarloProjection(investments), [investments]);
+  if (!mcRows.length) return null;
+
+  // Terminal year = last MC row with a non-zero value.
+  const terminalRow =
+    [...mcRows].reverse().find((r) => r.p50 > 0) ?? mcRows[mcRows.length - 1];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          Projected total value at liquidation
+          <span className="ml-2 text-xs font-normal">
+            (500 simulations · ±35% IRR uncertainty · ±2yr hold)
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Conservative (p10)</span>
+            <span className="text-lg font-mono font-semibold tabular-nums text-destructive">
+              {fmtUSD(terminalRow.p10)}
+            </span>
+            <span className="text-xs text-muted-foreground">by {terminalRow.year}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Base case (p50)</span>
+            <span className="text-lg font-mono font-semibold tabular-nums">
+              {fmtUSD(terminalRow.p50)}
+            </span>
+            <span className="text-xs text-muted-foreground">by {terminalRow.year}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-muted-foreground">Optimistic (p90)</span>
+            <span className="text-lg font-mono font-semibold tabular-nums text-green-700 dark:text-green-400">
+              {fmtUSD(terminalRow.p90)}
+            </span>
+            <span className="text-xs text-muted-foreground">by {terminalRow.year}</span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -941,19 +1270,36 @@ function ProjectionChart({ investments, totalCommitted }) {
 function PortfolioSummary({ portfolio }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 rounded-xl bg-muted/40 p-4">
-      <MetricCell label="Committed" value={fmtUSD(portfolio.totalCommitted)} valueClassName="text-base font-semibold" />
-      <MetricCell label="Called" value={fmtUSD(portfolio.totalCalled)} valueClassName="text-base font-semibold" />
-      <MetricCell label="Distributions" value={fmtUSD(portfolio.totalDistributions)} valueClassName="text-base font-semibold" />
       <MetricCell
-        label="Portfolio value"
-        value={portfolio.portfolioProjectedNAV != null ? fmtUSD(portfolio.portfolioProjectedNAV) : "—"}
-        tooltip="IRR-compounded paper value of all active investments minus distributions received. Estimated — not mark-to-market."
+        label="Committed"
+        value={fmtUSD(portfolio.totalCommitted)}
+        valueClassName="text-base font-semibold"
+      />
+      <MetricCell
+        label="Called"
+        value={fmtUSD(portfolio.totalCalled)}
+        valueClassName="text-base font-semibold"
+      />
+      <MetricCell
+        label="Cash received"
+        value={fmtUSD(portfolio.totalDistributions)}
+        tooltip="All cash received to date: distributions and exit proceeds from realized investments."
+        valueClassName="text-base font-semibold"
+      />
+      <MetricCell
+        label="Total value"
+        value={
+          portfolio.portfolioTotalValue != null
+            ? fmtUSD(portfolio.portfolioTotalValue)
+            : "—"
+        }
+        tooltip="Paper NAV of active investments + all cash received. When an investment exits, its NAV converts to cash — the total stays intact."
         valueClassName="text-base font-semibold"
       />
       <MetricCell
         label="DPI"
         value={fmtDPI(portfolio.portfolioDPI)}
-        tooltip="Distributions to Paid-In Capital — total distributions divided by total capital called across all investments."
+        tooltip="Distributions to Paid-In Capital — total cash received divided by total capital called."
         valueClassName="text-base font-semibold"
       />
       <MetricCell
@@ -970,11 +1316,17 @@ function PortfolioSummary({ portfolio }) {
 
 export function Alts() {
   const [plan, setPlan] = useState(null);
+  const [samplePlan, setSamplePlan] = useState(null); // non-null = sample preview active
+  const [activeSampleId, setActiveSampleId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [invDialog, setInvDialog] = useState({ open: false, data: null });
-  const [cfDialog, setCFDialog] = useState({ open: false, investmentId: null, data: null });
+  const [cfDialog, setCFDialog] = useState({
+    open: false,
+    investmentId: null,
+    data: null,
+  });
   const [deleteDialog, setDeleteDialog] = useState({
     open: false,
     type: null,
@@ -983,6 +1335,9 @@ export function Alts() {
     label: "",
   });
   const [saving, setSaving] = useState(false);
+
+  // Sample preview overrides the real plan in the UI — Firestore is never touched.
+  const activePlan = samplePlan ?? plan;
 
   // Load plan on mount
   useEffect(() => {
@@ -1024,7 +1379,13 @@ export function Alts() {
       setSaving(true);
       const result = await callAltsDeleteInvestment({ investmentId });
       setPlan(result.data.data.plan);
-      setDeleteDialog({ open: false, type: null, investmentId: null, cashFlowId: null, label: "" });
+      setDeleteDialog({
+        open: false,
+        type: null,
+        investmentId: null,
+        cashFlowId: null,
+        label: "",
+      });
     } catch (e) {
       setError(e.message ?? "Failed to delete investment.");
     } finally {
@@ -1053,7 +1414,13 @@ export function Alts() {
       setSaving(true);
       const result = await callAltsDeleteCashFlow({ investmentId, cashFlowId });
       setPlan(result.data.data.plan);
-      setDeleteDialog({ open: false, type: null, investmentId: null, cashFlowId: null, label: "" });
+      setDeleteDialog({
+        open: false,
+        type: null,
+        investmentId: null,
+        cashFlowId: null,
+        label: "",
+      });
     } catch (e) {
       setError(e.message ?? "Failed to delete cash flow.");
     } finally {
@@ -1061,22 +1428,57 @@ export function Alts() {
     }
   }
 
-  const investments = plan?.investments ?? [];
-  const isEmpty = !plan || investments.length === 0;
+  const investments = activePlan?.investments ?? [];
+  const isEmpty = !activePlan || investments.length === 0;
+
+  async function handleLoadSample(profileId) {
+    const sample = getAltsSamples().find((p) => p.id === profileId);
+    if (!sample) return;
+    // Pass the sample as an override — the function enriches it server-side
+    // without reading or writing Firestore. Real user data is untouched.
+    const result = await callAltsGetPlan({
+      override: { investments: sample.investments },
+    });
+    setSamplePlan(result.data.data.plan);
+    setActiveSampleId(profileId);
+  }
+
+  async function handleLoadUser() {
+    // Clear the sample override and reload the real plan from Firestore.
+    const result = await callAltsGetPlan({});
+    setPlan(result.data.data.plan);
+    setSamplePlan(null);
+    setActiveSampleId(null);
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 md:px-6">
       {/* Page header */}
       <div className="mb-8">
-        <h1
-          className="font-heading font-bold tracking-tight text-foreground mb-1"
-          style={{ fontSize: "clamp(1.5rem, 4vw, 2rem)" }}
-        >
-          Alts
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Track alternative investments — compare projected vs actual performance.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1
+              className="font-heading font-bold tracking-tight text-foreground mb-1"
+              style={{ fontSize: "clamp(1.5rem, 4vw, 2rem)" }}
+            >
+              Alts
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Track alternative investments — compare projected vs actual performance.
+            </p>
+          </div>
+          <SampleDataButton
+            profiles={getAltsSamples()}
+            onLoad={handleLoadSample}
+            destructive={false}
+            activeSampleId={activeSampleId}
+            userOption={{
+              label: "My data",
+              description: "Return to your real portfolio data.",
+            }}
+            onLoadUser={handleLoadUser}
+          />
+        </div>
       </div>
 
       {/* Loading */}
@@ -1098,7 +1500,9 @@ export function Alts() {
         <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
           <Layers className="h-12 w-12 text-muted-foreground" />
           <div className="flex flex-col gap-1">
-            <p className="font-heading font-semibold text-lg text-foreground">No investments yet</p>
+            <p className="font-heading font-semibold text-lg text-foreground">
+              No investments yet
+            </p>
             <p className="text-sm text-muted-foreground">
               Add your first investment to start tracking performance.
             </p>
@@ -1114,22 +1518,22 @@ export function Alts() {
       {!loading && !error && !isEmpty && (
         <div className="flex flex-col gap-6">
           {/* Portfolio summary */}
-          <PortfolioSummary portfolio={plan.portfolio} />
+          <PortfolioSummary portfolio={activePlan.portfolio} />
 
-          {/* Projection chart */}
+          {/* Monte Carlo probability range at liquidation */}
+          <MonteCarloSummaryCard investments={activePlan.investments} />
+
+          {/* Projection chart with MC bands */}
           <ProjectionChart
-            investments={plan.investments}
-            totalCommitted={plan.portfolio.totalCommitted}
+            investments={activePlan.investments}
+            totalCommitted={activePlan.portfolio.totalCommitted}
           />
 
           {/* Investments section */}
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="font-heading font-semibold text-foreground">Investments</h2>
-              <Button
-                size="sm"
-                onClick={() => setInvDialog({ open: true, data: null })}
-              >
+              <Button size="sm" onClick={() => setInvDialog({ open: true, data: null })}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add investment
               </Button>
@@ -1151,8 +1555,12 @@ export function Alts() {
                     label: i.name,
                   })
                 }
-                onAddCF={() => setCFDialog({ open: true, investmentId: inv.id, data: null })}
-                onEditCF={(cf) => setCFDialog({ open: true, investmentId: inv.id, data: cf })}
+                onAddCF={() =>
+                  setCFDialog({ open: true, investmentId: inv.id, data: null })
+                }
+                onEditCF={(cf) =>
+                  setCFDialog({ open: true, investmentId: inv.id, data: cf })
+                }
                 onDeleteCF={(cf) =>
                   setDeleteDialog({
                     open: true,
@@ -1188,9 +1596,7 @@ export function Alts() {
       <DeleteDialog
         open={deleteDialog.open}
         title={
-          deleteDialog.type === "investment"
-            ? "Delete investment"
-            : "Delete cash flow"
+          deleteDialog.type === "investment" ? "Delete investment" : "Delete cash flow"
         }
         description={
           deleteDialog.type === "investment"
@@ -1207,7 +1613,9 @@ export function Alts() {
           })
         }
         onConfirm={
-          deleteDialog.type === "investment" ? handleDeleteInvestment : handleDeleteCashFlow
+          deleteDialog.type === "investment"
+            ? handleDeleteInvestment
+            : handleDeleteCashFlow
         }
         confirming={saving}
       />

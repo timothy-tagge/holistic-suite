@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { enrichPlan } from "../helpers.js";
+import { enrichPlan, calcProjectedAnnualIncome } from "../helpers.js";
 
 // Pin "today" so projectedNAV calculations are deterministic
 const FIXED_NOW = new Date("2025-01-01").getTime();
@@ -94,25 +94,29 @@ describe("enrichPlan — portfolio aggregates", () => {
 
 describe("enrichPlan — per-investment metrics", () => {
   it("computes totalCalled from call cash flows only", () => {
-    const plan = makePlan([makeInv({
-      cashFlows: [
-        { id: "c1", date: "2023-01-01", type: "call", amount: 50000 },
-        { id: "c2", date: "2023-06-01", type: "distribution-income", amount: 5000 },
-      ],
-    })]);
+    const plan = makePlan([
+      makeInv({
+        cashFlows: [
+          { id: "c1", date: "2023-01-01", type: "call", amount: 50000 },
+          { id: "c2", date: "2023-06-01", type: "distribution-income", amount: 5000 },
+        ],
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.totalCalled).toBe(50000);
     expect(investments[0].metrics.totalDistributions).toBe(5000);
   });
 
   it("computes DPI per investment", () => {
-    const plan = makePlan([makeInv({
-      cashFlows: [
-        { id: "c1", date: "2022-01-01", type: "call", amount: 100000 },
-        { id: "c2", date: "2023-01-01", type: "distribution-income", amount: 30000 },
-        { id: "c3", date: "2024-01-01", type: "distribution-roc", amount: 20000 },
-      ],
-    })]);
+    const plan = makePlan([
+      makeInv({
+        cashFlows: [
+          { id: "c1", date: "2022-01-01", type: "call", amount: 100000 },
+          { id: "c2", date: "2023-01-01", type: "distribution-income", amount: 30000 },
+          { id: "c3", date: "2024-01-01", type: "distribution-roc", amount: 20000 },
+        ],
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.dpi).toBeCloseTo(0.5, 5);
   });
@@ -130,19 +134,23 @@ describe("enrichPlan — per-investment metrics", () => {
   });
 
   it("computes projectedExitYear from cocStartDate + holdYears", () => {
-    const plan = makePlan([makeInv({
-      cocStartDate: "2022-03-01",
-      projectedHoldYears: 5,
-    })]);
+    const plan = makePlan([
+      makeInv({
+        cocStartDate: "2022-03-01",
+        projectedHoldYears: 5,
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.projectedExitYear).toBe(2027);
   });
 
   it("computes projectedExitYear from vintage when cocStartDate is absent", () => {
-    const plan = makePlan([makeInv({
-      vintage: 2021,
-      projectedHoldYears: 7,
-    })]);
+    const plan = makePlan([
+      makeInv({
+        vintage: 2021,
+        projectedHoldYears: 7,
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.projectedExitYear).toBe(2028);
   });
@@ -155,13 +163,15 @@ describe("enrichPlan — per-investment metrics", () => {
 
   it("computes projectedNAV for an active investment with IRR", () => {
     // Capital deployed in 2023, 2 years of compounding at 18% by 2025
-    const plan = makePlan([makeInv({
-      committed: 100000,
-      projectedIRR: 0.18,
-      cocStartDate: "2023-01-01",
-      status: "active",
-      cashFlows: [],
-    })]);
+    const plan = makePlan([
+      makeInv({
+        committed: 100000,
+        projectedIRR: 0.18,
+        cocStartDate: "2023-01-01",
+        status: "active",
+        cashFlows: [],
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     const nav = investments[0].metrics.projectedNAV;
     expect(nav).not.toBeNull();
@@ -171,12 +181,14 @@ describe("enrichPlan — per-investment metrics", () => {
   });
 
   it("projectedNAV is null for realized investments", () => {
-    const plan = makePlan([makeInv({
-      committed: 100000,
-      projectedIRR: 0.18,
-      cocStartDate: "2020-01-01",
-      status: "realized",
-    })]);
+    const plan = makePlan([
+      makeInv({
+        committed: 100000,
+        projectedIRR: 0.18,
+        cocStartDate: "2020-01-01",
+        status: "realized",
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.projectedNAV).toBeNull();
   });
@@ -189,11 +201,22 @@ describe("enrichPlan — per-investment metrics", () => {
 
   it("portfolioProjectedNAV sums NAV across active investments", () => {
     const plan = makePlan([
-      makeInv({ id: "1", committed: 100000, projectedIRR: 0.1, cocStartDate: "2024-01-01" }),
-      makeInv({ id: "2", committed: 100000, projectedIRR: 0.1, cocStartDate: "2024-01-01" }),
+      makeInv({
+        id: "1",
+        committed: 100000,
+        projectedIRR: 0.1,
+        cocStartDate: "2024-01-01",
+      }),
+      makeInv({
+        id: "2",
+        committed: 100000,
+        projectedIRR: 0.1,
+        cocStartDate: "2024-01-01",
+      }),
     ]);
     const { portfolio, investments } = enrichPlan(plan);
-    const expectedNAV = investments[0].metrics.projectedNAV + investments[1].metrics.projectedNAV;
+    const expectedNAV =
+      investments[0].metrics.projectedNAV + investments[1].metrics.projectedNAV;
     expect(portfolio.portfolioProjectedNAV).toBeCloseTo(expectedNAV, 0);
   });
 });
@@ -208,22 +231,123 @@ describe("enrichPlan — computedIRR", () => {
   });
 
   it("is null when there are only calls (no distributions)", () => {
-    const plan = makePlan([makeInv({
-      cashFlows: [{ id: "c1", date: "2023-01-01", type: "call", amount: 100000 }],
-    })]);
+    const plan = makePlan([
+      makeInv({
+        cashFlows: [{ id: "c1", date: "2023-01-01", type: "call", amount: 100000 }],
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.computedIRR).toBeNull();
   });
 
   it("computes IRR when both calls and distributions are present", () => {
-    const plan = makePlan([makeInv({
-      cashFlows: [
-        { id: "c1", date: "2023-01-01", type: "call", amount: 100000 },
-        { id: "c2", date: "2024-01-01", type: "exit", amount: 115000 },
-      ],
-    })]);
+    const plan = makePlan([
+      makeInv({
+        cashFlows: [
+          { id: "c1", date: "2023-01-01", type: "call", amount: 100000 },
+          { id: "c2", date: "2024-01-01", type: "exit", amount: 115000 },
+        ],
+      }),
+    ]);
     const { investments } = enrichPlan(plan);
     expect(investments[0].metrics.computedIRR).not.toBeNull();
     expect(investments[0].metrics.computedIRR).toBeCloseTo(0.15, 2);
+  });
+});
+
+// ── calcProjectedAnnualIncome ─────────────────────────────────────────────────
+
+describe("calcProjectedAnnualIncome", () => {
+  function makeInvWithCoC(overrides = {}) {
+    return {
+      status: "active",
+      committed: 100000,
+      projectedCashOnCash: 0.08,
+      cocStartDate: "2024-01-01",
+      cocGrowthRate: 0,
+      metrics: { projectedExitYear: null },
+      ...overrides,
+    };
+  }
+
+  it("returns 0 for empty investments", () => {
+    expect(calcProjectedAnnualIncome([], 2025)).toBe(0);
+    expect(calcProjectedAnnualIncome(null, 2025)).toBe(0);
+  });
+
+  it("returns 0 for realized investments", () => {
+    const inv = makeInvWithCoC({ status: "realized" });
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(0);
+  });
+
+  it("returns 0 when projectedCashOnCash is null", () => {
+    const inv = makeInvWithCoC({ projectedCashOnCash: null });
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(0);
+  });
+
+  it("returns 0 when cocStartDate is missing", () => {
+    const inv = makeInvWithCoC({ cocStartDate: null });
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(0);
+  });
+
+  it("returns 0 before cocStartYear", () => {
+    const inv = makeInvWithCoC({ cocStartDate: "2026-01-01" });
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(0);
+  });
+
+  it("returns 0 at or after projectedExitYear", () => {
+    const inv = makeInvWithCoC({
+      cocStartDate: "2020-01-01",
+      metrics: { projectedExitYear: 2025 },
+    });
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(0);
+    expect(calcProjectedAnnualIncome([inv], 2026)).toBe(0);
+  });
+
+  it("returns committed × cocRate when growth is 0 and year equals cocStartYear", () => {
+    const inv = makeInvWithCoC({ cocStartDate: "2025-01-01", cocGrowthRate: 0 });
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(8000);
+  });
+
+  it("applies cocGrowthRate compounded from cocStartYear", () => {
+    const inv = makeInvWithCoC({ cocStartDate: "2023-01-01", cocGrowthRate: 0.02 });
+    const expected = Math.round(100000 * 0.08 * Math.pow(1.02, 2));
+    expect(calcProjectedAnnualIncome([inv], 2025)).toBe(expected);
+  });
+
+  it("sums across multiple active investments", () => {
+    const inv1 = makeInvWithCoC({
+      committed: 100000,
+      projectedCashOnCash: 0.08,
+      cocStartDate: "2024-01-01",
+    });
+    const inv2 = makeInvWithCoC({
+      committed: 50000,
+      projectedCashOnCash: 0.1,
+      cocStartDate: "2024-01-01",
+    });
+    expect(calcProjectedAnnualIncome([inv1, inv2], 2024)).toBe(13000);
+  });
+
+  it("excludes investment that hasn't started while including one that has", () => {
+    const started = makeInvWithCoC({
+      committed: 100000,
+      projectedCashOnCash: 0.08,
+      cocStartDate: "2024-01-01",
+    });
+    const notYet = makeInvWithCoC({
+      committed: 200000,
+      projectedCashOnCash: 0.1,
+      cocStartDate: "2027-01-01",
+    });
+    expect(calcProjectedAnnualIncome([started, notYet], 2025)).toBe(8000);
+  });
+
+  it("continues after projected hold when exitYear is null (evergreen)", () => {
+    const evergreen = makeInvWithCoC({
+      cocStartDate: "2020-01-01",
+      metrics: { projectedExitYear: null },
+    });
+    expect(calcProjectedAnnualIncome([evergreen], 2030)).toBeGreaterThan(0);
   });
 });

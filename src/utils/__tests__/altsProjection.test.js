@@ -4,6 +4,7 @@ import {
   calcCumulativeProjectedDistToYear,
   calcInvProjectedNAV,
   buildProjection,
+  buildMonteCarloProjection,
 } from "../altsProjection.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -55,8 +56,10 @@ describe("calcInvTotalProjectedDist", () => {
   it("compounds distributions with a growth rate", () => {
     const inv = makeInv({ cocGrowthRate: 0.05 });
     // Year 0: 8000, Year 1: 8400, Year 2: 8820, Year 3: 9261, Year 4: 9724
-    const expected = [0, 1, 2, 3, 4]
-      .reduce((s, n) => s + 100000 * 0.08 * Math.pow(1.05, n), 0);
+    const expected = [0, 1, 2, 3, 4].reduce(
+      (s, n) => s + 100000 * 0.08 * Math.pow(1.05, n),
+      0
+    );
     expect(calcInvTotalProjectedDist(inv)).toBeCloseTo(expected, 0);
   });
 });
@@ -134,7 +137,7 @@ describe("calcInvProjectedNAV", () => {
     // Extreme case: very low IRR, very high cash yield
     const inv = makeInv({
       projectedIRR: 0.01,
-      projectedCashOnCash: 0.50,
+      projectedCashOnCash: 0.5,
       cocStartDate: "2020-01-01",
       metrics: { projectedExitYear: 2030 },
     });
@@ -159,7 +162,7 @@ describe("buildProjection", () => {
   it("generates rows for each year from referenceYear to exitYear", () => {
     const inv = makeInv(); // cocStart=2023, exit=2028
     const rows = buildProjection([inv], 2024);
-    const years = rows.map(r => r.year);
+    const years = rows.map((r) => r.year);
     expect(years).toContain(2024);
     expect(years).toContain(2027); // last distribution year
     expect(years).toContain(2028); // exit year
@@ -168,14 +171,14 @@ describe("buildProjection", () => {
   it("distribution rows have correct flat yield", () => {
     const inv = makeInv(); // $100k × 8% = $8k/yr, growth=0
     const rows = buildProjection([inv], 2024);
-    const distRow = rows.find(r => r.year === 2024 && r.exitProceeds === 0);
+    const distRow = rows.find((r) => r.year === 2024 && r.exitProceeds === 0);
     expect(distRow?.distributions).toBeCloseTo(8000, -1);
   });
 
   it("exit year row has exitProceeds > 0", () => {
     const inv = makeInv(); // exit=2028
     const rows = buildProjection([inv], 2024);
-    const exitRow = rows.find(r => r.year === 2028);
+    const exitRow = rows.find((r) => r.year === 2028);
     expect(exitRow).toBeDefined();
     expect(exitRow.exitProceeds).toBeGreaterThan(0);
   });
@@ -183,7 +186,7 @@ describe("buildProjection", () => {
   it("exit proceeds are estimated as IRR multiple minus projected distributions", () => {
     const inv = makeInv(); // 18% IRR, 5 yr hold, $40k projected distributions
     const rows = buildProjection([inv], 2024);
-    const exitRow = rows.find(r => r.year === 2028);
+    const exitRow = rows.find((r) => r.year === 2028);
     const multiple = Math.pow(1.18, 5);
     const totalDist = 100000 * 0.08 * 5; // $40k
     const expectedExit = 100000 * multiple - totalDist;
@@ -210,7 +213,7 @@ describe("buildProjection", () => {
   it("portfolioNAV decreases toward 0 at exit", () => {
     const inv = makeInv();
     const rows = buildProjection([inv], 2024);
-    const exitRow = rows.find(r => r.year === 2028);
+    const exitRow = rows.find((r) => r.year === 2028);
     expect(exitRow?.portfolioNAV).toBe(0);
   });
 
@@ -218,16 +221,16 @@ describe("buildProjection", () => {
     const inv1 = makeInv({ id: "1", committed: 100000 });
     const inv2 = makeInv({ id: "2", committed: 200000 });
     const rows = buildProjection([inv1, inv2], 2024);
-    const distRow = rows.find(r => r.year === 2024);
+    const distRow = rows.find((r) => r.year === 2024);
     // 8% of 100k + 8% of 200k = 24k
     expect(distRow?.distributions).toBeCloseTo(24000, -1);
   });
 
   it("applies growth rate to distributions", () => {
-    const inv = makeInv({ cocGrowthRate: 0.10 }); // 10% annual growth
+    const inv = makeInv({ cocGrowthRate: 0.1 }); // 10% annual growth
     const rows = buildProjection([inv], 2023);
-    const year0 = rows.find(r => r.year === 2023);
-    const year1 = rows.find(r => r.year === 2024);
+    const year0 = rows.find((r) => r.year === 2023);
+    const year1 = rows.find((r) => r.year === 2024);
     expect(year0?.distributions).toBeCloseTo(8000, -1);
     expect(year1?.distributions).toBeCloseTo(8800, -1);
   });
@@ -235,7 +238,7 @@ describe("buildProjection", () => {
   it("exit year row includes exits array with investment name and proceeds", () => {
     const inv = makeInv({ name: "Ashcroft Fund V" });
     const rows = buildProjection([inv], 2024);
-    const exitRow = rows.find(r => r.year === 2028);
+    const exitRow = rows.find((r) => r.year === 2028);
     expect(exitRow?.exits).toHaveLength(1);
     expect(exitRow?.exits[0].name).toBe("Ashcroft Fund V");
     expect(exitRow?.exits[0].proceeds).toBeGreaterThan(0);
@@ -244,7 +247,7 @@ describe("buildProjection", () => {
   it("exitLabel is the investment name for a single exit", () => {
     const inv = makeInv({ name: "Syndication X" });
     const rows = buildProjection([inv], 2024);
-    const exitRow = rows.find(r => r.year === 2028);
+    const exitRow = rows.find((r) => r.year === 2028);
     expect(exitRow?.exitLabel).toBe("Syndication X");
   });
 
@@ -252,7 +255,7 @@ describe("buildProjection", () => {
     const inv1 = makeInv({ id: "1", name: "Fund A" });
     const inv2 = makeInv({ id: "2", name: "Fund B" });
     const rows = buildProjection([inv1, inv2], 2024);
-    const exitRow = rows.find(r => r.year === 2028);
+    const exitRow = rows.find((r) => r.year === 2028);
     expect(exitRow?.exitLabel).toBe("2 exits");
     expect(exitRow?.exits).toHaveLength(2);
   });
@@ -260,7 +263,7 @@ describe("buildProjection", () => {
   it("non-exit rows have empty exits array and empty exitLabel", () => {
     const inv = makeInv();
     const rows = buildProjection([inv], 2024);
-    const distRow = rows.find(r => r.year === 2025 && r.exitProceeds === 0);
+    const distRow = rows.find((r) => r.year === 2025 && r.exitProceeds === 0);
     expect(distRow?.exits).toEqual([]);
     expect(distRow?.exitLabel).toBe("");
   });
@@ -268,7 +271,7 @@ describe("buildProjection", () => {
   it("uses a fallback of committed capital as exit proceeds when IRR is missing", () => {
     const inv = makeInv({ projectedIRR: null, projectedHoldYears: null });
     const rows = buildProjection([inv], 2024);
-    const exitRow = rows.find(r => r.exitProceeds > 0);
+    const exitRow = rows.find((r) => r.exitProceeds > 0);
     if (exitRow) {
       expect(exitRow.exitProceeds).toBeCloseTo(100000, -2);
     }
@@ -280,7 +283,102 @@ describe("buildProjection", () => {
       metrics: { projectedExitYear: null },
     });
     const rows = buildProjection([inv], 2024);
-    const maxYear = Math.max(...rows.map(r => r.year));
+    const maxYear = Math.max(...rows.map((r) => r.year));
     expect(maxYear).toBeGreaterThanOrEqual(2029);
+  });
+
+  it("includes totalValue = portfolioNAV + cumulative in each row", () => {
+    const inv = makeInv();
+    const rows = buildProjection([inv], 2024);
+    for (const row of rows) {
+      expect(row.totalValue).toBe(row.portfolioNAV + row.cumulative);
+    }
+  });
+
+  it("totalValue stays non-zero after the investment exits (cash carry-through)", () => {
+    const inv = makeInv();
+    const rows = buildProjection([inv], 2024);
+    const exitRow = rows.find((r) => r.year === 2028);
+    expect(exitRow).toBeDefined();
+    // After exit: NAV = 0, but totalValue = cumulative (all cash received)
+    expect(exitRow.portfolioNAV).toBe(0);
+    expect(exitRow.totalValue).toBeGreaterThan(0);
+    expect(exitRow.totalValue).toBe(exitRow.cumulative);
+  });
+
+  it("includes per-investment dist and exit fields", () => {
+    const inv = makeInv({ id: "abc123" });
+    const rows = buildProjection([inv], 2024);
+    const distRow = rows.find((r) => r["dist_abc123"] > 0);
+    expect(distRow).toBeDefined();
+    const exitRow = rows.find((r) => r["exit_abc123"] > 0);
+    expect(exitRow).toBeDefined();
+  });
+});
+
+// ── buildMonteCarloProjection ─────────────────────────────────────────────────
+
+describe("buildMonteCarloProjection", () => {
+  it("returns empty array for empty investments", () => {
+    expect(buildMonteCarloProjection([])).toEqual([]);
+    expect(buildMonteCarloProjection(null)).toEqual([]);
+  });
+
+  it("returns empty array when no active investments", () => {
+    const realized = makeInv({ status: "realized" });
+    expect(buildMonteCarloProjection([realized], 2024)).toEqual([]);
+  });
+
+  it("returns an array of rows covering at least the projection range", () => {
+    const inv = makeInv();
+    const rows = buildMonteCarloProjection([inv], 2024, 50);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].year).toBe(2024);
+    // Extends 2 years beyond exit year (2028) for positive hold jitter
+    expect(rows[rows.length - 1].year).toBeGreaterThanOrEqual(2028);
+  });
+
+  it("each row has required fields", () => {
+    const inv = makeInv();
+    const rows = buildMonteCarloProjection([inv], 2024, 50);
+    for (const row of rows) {
+      expect(row).toHaveProperty("year");
+      expect(row).toHaveProperty("p10");
+      expect(row).toHaveProperty("p50");
+      expect(row).toHaveProperty("p90");
+      expect(row).toHaveProperty("bandHeight");
+    }
+  });
+
+  it("percentiles are in non-decreasing order (p10 ≤ p50 ≤ p90)", () => {
+    const inv = makeInv();
+    const rows = buildMonteCarloProjection([inv], 2024, 200);
+    for (const row of rows) {
+      expect(row.p10).toBeLessThanOrEqual(row.p50);
+      expect(row.p50).toBeLessThanOrEqual(row.p90);
+    }
+  });
+
+  it("bandHeight equals p90 - p10", () => {
+    const inv = makeInv();
+    const rows = buildMonteCarloProjection([inv], 2024, 50);
+    for (const row of rows) {
+      expect(row.bandHeight).toBe(row.p90 - row.p10);
+    }
+  });
+
+  it("p50 is in a plausible range around the deterministic base case", () => {
+    const inv = makeInv();
+    const projRows = buildProjection([inv], 2024);
+    const mcRows = buildMonteCarloProjection([inv], 2024, 500);
+    // Find the exit year row in both
+    const projExit = projRows.find((r) => r.year === 2028);
+    const mcExit = mcRows.find((r) => r.year === 2028);
+    expect(projExit).toBeDefined();
+    expect(mcExit).toBeDefined();
+    // p50 total value should be within 50% of deterministic total value
+    const det = projExit.totalValue;
+    expect(mcExit.p50).toBeGreaterThan(det * 0.5);
+    expect(mcExit.p50).toBeLessThan(det * 2.0);
   });
 });

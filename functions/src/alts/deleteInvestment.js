@@ -14,7 +14,7 @@ export const altsDeleteInvestment = onCall({ cors: true }, async (request) => {
   if (!snap.exists) throw new HttpsError("not-found", "Plan not found.");
 
   const plan = snap.data();
-  const investments = (plan.investments ?? []).filter(i => i.id !== investmentId);
+  const investments = (plan.investments ?? []).filter((i) => i.id !== investmentId);
   const now = new Date().toISOString();
   await ref.update({ investments, updatedAt: now });
 
