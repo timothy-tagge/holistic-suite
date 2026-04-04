@@ -717,7 +717,10 @@ function SavingsConfig({ plan, onSaved }) {
           const yearValid = ls.year !== "" && Number.isInteger(y) && y >= currentYear;
           const amountValid = ls.amount !== "" && parseFormatted(ls.amount) > 0;
           return (
-            <div key={i} className="grid grid-cols-1 sm:grid-cols-[auto_1fr_1fr_auto] items-center gap-2">
+            <div
+              key={i}
+              className="grid grid-cols-1 sm:grid-cols-[auto_1fr_1fr_auto] items-center gap-2"
+            >
               <Input
                 type="number"
                 min={currentYear}
@@ -1087,7 +1090,9 @@ function ChildrenSection({ plan, onSaved }) {
                 style={{ background: color }}
               />
               <div className="min-w-0">
-                <p className="font-medium text-foreground text-sm truncate">{child.name}</p>
+                <p className="font-medium text-foreground text-sm truncate">
+                  {child.name}
+                </p>
                 <p className="text-xs text-muted-foreground break-words">
                   Born {child.birthYear} · College {startYear}–{startYear + COLLEGE_YEARS}{" "}
                   · {tier?.label}
