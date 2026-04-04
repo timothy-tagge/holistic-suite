@@ -24,7 +24,10 @@ export function VerifyEmail({ email, onBack }) {
       setCooldown(RESEND_COOLDOWN);
       const interval = setInterval(() => {
         setCooldown((prev) => {
-          if (prev <= 1) { clearInterval(interval); return 0; }
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
           return prev - 1;
         });
       }, 1000);
@@ -45,8 +48,8 @@ export function VerifyEmail({ email, onBack }) {
           </h1>
           <p className="text-muted-foreground text-sm">
             We sent a sign-in link to{" "}
-            <span className="font-medium text-foreground">{email}</span>.
-            Click the link to sign in — no password needed.
+            <span className="font-medium text-foreground">{email}</span>. Click the link
+            to sign in — no password needed.
           </p>
         </div>
         <div className="space-y-3">

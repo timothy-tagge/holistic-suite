@@ -594,11 +594,11 @@ No duplication of profile data in module-level documents.
 
 ### Providers
 
-| Provider       | Status    | Notes                                              |
-| -------------- | --------- | -------------------------------------------------- |
-| Google         | Active    | Popup flow; no email verification required         |
-| Email link     | Active    | Passwordless magic link; verification is inherent  |
-| Apple          | Deferred  | Requires permanent domain — implement post-launch  |
+| Provider   | Status   | Notes                                             |
+| ---------- | -------- | ------------------------------------------------- |
+| Google     | Active   | Popup flow; no email verification required        |
+| Email link | Active   | Passwordless magic link; verification is inherent |
+| Apple      | Deferred | Requires permanent domain — implement post-launch |
 
 ### Landing page sign-in block
 
@@ -608,14 +608,12 @@ Both providers share equal visual weight. Layout (top to bottom):
 [Continue with Google]
 ────────── or ──────────
 [Email                ]
-[Password             ]
-[Sign in]  [Get started]
+[Send sign-in link    ]
 ```
 
-- "Sign in" submits to the sign-in flow (existing account)
-- "Get started" submits to the sign-up flow (new account)
-- Forgot password link below the password field in sign-in mode
-- Toggle between sign-in and sign-up mode via a text link ("New here? Get started" / "Already have an account? Sign in")
+- Email field + "Send sign-in link" button — no password field
+- On submit: sends magic link, saves email to `localStorage`, shows "Check your email" screen
+- Nav bar shows a compact Google icon button only (space-constrained)
 
 ### Email link (passwordless) flow
 
@@ -630,11 +628,11 @@ Both providers share equal visual weight. Layout (top to bottom):
 
 ### Error handling
 
-| Firebase error code               | User-facing message                                   |
-| --------------------------------- | ----------------------------------------------------- |
-| `auth/too-many-requests`          | "Too many requests. Try again later."                 |
-| `auth/network-request-failed`     | "Network error. Check your connection and try again." |
-| (all others)                      | "Couldn't send the link. Try again."                  |
+| Firebase error code           | User-facing message                                   |
+| ----------------------------- | ----------------------------------------------------- |
+| `auth/too-many-requests`      | "Too many requests. Try again later."                 |
+| `auth/network-request-failed` | "Network error. Check your connection and try again." |
+| (all others)                  | "Couldn't send the link. Try again."                  |
 
 ---
 
@@ -649,26 +647,24 @@ Setup has two steps. Step 1 is always the same. Step 2 is composed dynamically f
 union of questions required by the selected modules.
 
 ```
-Landing page → Sign in (Google or email/password) → Firebase Auth →
-
-  [email/password new user only]
-  → "Check your email" screen (verify before accessing app)
-  → User clicks verification link → redirected back to app
+Landing page → Sign in (Google popup or email magic link) → Firebase Auth →
 
 Step 1: "What's part of your holistic money view?"  ← always shown; module selection
+         At least one module must be selected to continue — no skip option
 Step 2: [questions driven by selected modules]   ← skipped if no module needs inputs
 → Route to the first selected module
 ```
 
-`isOnboarded` = `activeModules.length > 0`. No module inputs are required to complete
-onboarding — step 2 may have zero questions if no selected module needs upfront data.
+`isOnboarded` = `activeModules.length > 0`. At least one module must be selected —
+the Continue button is disabled until a selection is made. Step 2 may have zero
+questions if no selected module needs upfront data.
 
 ### Module onboarding requirements
 
 | Module       | Questions                                                   | Notes                                                  |
 | ------------ | ----------------------------------------------------------- | ------------------------------------------------------ |
 | `retirement` | Current age · Target retirement age (default: 65)           | Year is computed, not asked                            |
-| `college`    | Number of children · Monthly savings budget                 | Child details collected inside the module              |
+| `college`    | Number of children                                          | Child details and savings collected inside the module  |
 | `alts`       | Number of investments · Approximate total committed capital | Seeds sleeve view; investment details collected inside |
 | `equity`     | TBD                                                         | Likely nothing upfront                                 |
 
@@ -707,12 +703,12 @@ the module page shows a banner listing **all** uninitialized modules — not jus
 
 Sections (top to bottom):
 
-- **Hero** — headline, one-sentence positioning, sign-in block (Google + email/password)
+- **Hero** — headline, one-sentence positioning, sign-in block (Google + email link)
 - **Philosophy** — 4 pillars: invest don't save / time is the asset /
   plan the whole family / think in decades
 - **Module previews** — one card per module: what it solves, what the output looks like
 - **How it works** — 3 steps: choose what you want to see → answer a few quick questions → see the whole picture
-- **Closing CTA** — sign-in block (Google + email/password)
+- **Closing CTA** — sign-in block (Google + email link)
 
 **Authenticated — dashboard**
 

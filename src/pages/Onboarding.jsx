@@ -128,7 +128,7 @@ export function Onboarding() {
     if (hasStep2) {
       setStep(2);
     } else {
-      handleFinish([]);
+      handleFinish();
     }
   }
 
@@ -264,17 +264,18 @@ export function Onboarding() {
                 })}
               </div>
 
+              {selectedModules.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center mt-8">
+                  Select at least one module to continue.
+                </p>
+              )}
               <Button
-                className="w-full mt-8 gap-2"
+                className="w-full mt-3 gap-2"
                 size="lg"
-                disabled={saving}
+                disabled={saving || selectedModules.length === 0}
                 onClick={handleContinue}
               >
-                {saving
-                  ? "Saving…"
-                  : selectedModules.length === 0
-                    ? "Skip for now"
-                    : "Continue"}
+                {saving ? "Saving…" : "Continue"}
                 {!saving && <ArrowRight className="h-4 w-4" />}
               </Button>
             </div>

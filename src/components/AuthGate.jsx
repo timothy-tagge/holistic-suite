@@ -24,10 +24,13 @@ function ConfirmEmailForLink({ onConfirm }) {
           Confirm your email
         </h1>
         <p className="text-muted-foreground text-sm">
-          You opened this sign-in link on a different device. Enter your email to complete sign-in.
+          You opened this sign-in link on a different device. Enter your email to complete
+          sign-in.
         </p>
         <div className="space-y-1.5">
-          <Label htmlFor="confirm-email" className="text-sm">Email</Label>
+          <Label htmlFor="confirm-email" className="text-sm">
+            Email
+          </Label>
           <Input
             id="confirm-email"
             type="email"
@@ -37,7 +40,11 @@ function ConfirmEmailForLink({ onConfirm }) {
             autoFocus
           />
         </div>
-        <Button className="w-full" disabled={!email.trim()} onClick={() => onConfirm(email.trim())}>
+        <Button
+          className="w-full"
+          disabled={!email.trim()}
+          onClick={() => onConfirm(email.trim())}
+        >
           Sign in
         </Button>
       </div>

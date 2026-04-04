@@ -41,14 +41,21 @@ function Avatar({ profile }) {
       />
     );
   }
+  const initial = (profile.displayName?.[0] || profile.email?.[0] || "?").toUpperCase();
   return (
     <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold font-heading">
-      {profile.displayName?.[0] ?? "?"}
+      {initial}
     </div>
   );
 }
 
-export function AppHeader({ user, onSignOut, onShareClick, saveStatus, minimal = false }) {
+export function AppHeader({
+  user,
+  onSignOut,
+  onShareClick,
+  saveStatus,
+  minimal = false,
+}) {
   const location = useLocation();
   const [isDark, toggleDark] = useAppTheme();
   const { profile } = useProfile();
@@ -77,45 +84,50 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus, minimal =
         {!minimal && <Separator orientation="vertical" className="h-5" />}
 
         {/* Desktop nav tabs — hidden on mobile, hidden in minimal mode */}
-        {!minimal && <nav className="hidden sm:flex items-center gap-1" aria-label="Module navigation">
-          {NAV.map((tab) => {
-            const isActive = tab.key === currentKey;
-            const isBuilt = tab.href !== null;
+        {!minimal && (
+          <nav
+            className="hidden sm:flex items-center gap-1"
+            aria-label="Module navigation"
+          >
+            {NAV.map((tab) => {
+              const isActive = tab.key === currentKey;
+              const isBuilt = tab.href !== null;
 
-            if (!isBuilt) {
+              if (!isBuilt) {
+                return (
+                  <Tooltip key={tab.key}>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground/40 cursor-default select-none"
+                        aria-disabled="true"
+                      >
+                        {tab.label}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Coming soon</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
               return (
-                <Tooltip key={tab.key}>
-                  <TooltipTrigger asChild>
-                    <span
-                      className="px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground/40 cursor-default select-none"
-                      aria-disabled="true"
-                    >
-                      {tab.label}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>Coming soon</p>
-                  </TooltipContent>
-                </Tooltip>
+                <Link
+                  key={tab.key}
+                  to={tab.href}
+                  className={[
+                    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                  ].join(" ")}
+                >
+                  {tab.label}
+                </Link>
               );
-            }
-
-            return (
-              <Link
-                key={tab.key}
-                to={tab.href}
-                className={[
-                  "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                ].join(" ")}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-        </nav>}
+            })}
+          </nav>
+        )}
 
         {/* Mobile hamburger — visible only on mobile, not in minimal mode */}
         {!minimal && (

@@ -1,7 +1,5 @@
 import { useState } from "react";
-import {
-  sendSignInLinkToEmail,
-} from "firebase/auth";
+import { sendSignInLinkToEmail } from "firebase/auth";
 import { auth } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +39,9 @@ export function EmailAuthForm({ onLinkSent }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3 w-full">
       <div className="space-y-1.5">
-        <Label htmlFor="auth-email" className="text-sm">Email</Label>
+        <Label htmlFor="auth-email" className="text-sm">
+          Email
+        </Label>
         <Input
           id="auth-email"
           type="email"
