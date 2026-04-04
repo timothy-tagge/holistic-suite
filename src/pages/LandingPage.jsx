@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, GraduationCap, BarChart3, Layers, ArrowRight } from "lucide-react";
+import { EmailAuthForm } from "@/components/EmailAuthForm";
 
 const PILLARS = [
   {
@@ -97,22 +98,33 @@ function GoogleIcon() {
   );
 }
 
-function SignInButton({ onSignIn, size = "default" }) {
+function SignInBlock({ onGoogleSignIn, onLinkSent }) {
   return (
-    <Button onClick={onSignIn} size={size} className="gap-2">
-      <GoogleIcon />
-      Sign in with Google
-    </Button>
+    <div className="w-full max-w-sm mx-auto space-y-4">
+      <Button onClick={onGoogleSignIn} className="w-full gap-2">
+        <GoogleIcon />
+        Continue with Google
+      </Button>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-border" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <div className="flex-1 h-px bg-border" />
+      </div>
+      <EmailAuthForm onLinkSent={onLinkSent} />
+    </div>
   );
 }
 
-export function LandingPage({ onSignIn }) {
+export function LandingPage({ onGoogleSignIn, onLinkSent }) {
   return (
     <div className="min-h-svh bg-background text-foreground">
       {/* Nav */}
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur px-6 h-14 flex items-center justify-between">
         <span className="font-heading font-bold text-lg tracking-tight">Holistic</span>
-        <SignInButton onSignIn={onSignIn} size="sm" />
+        <Button onClick={onGoogleSignIn} size="sm" className="gap-2">
+          <GoogleIcon />
+          <span className="hidden sm:inline">Sign in</span>
+        </Button>
       </nav>
 
       {/* Hero */}
@@ -129,7 +141,7 @@ export function LandingPage({ onSignIn }) {
           Alternative investments, college funding, retirement — modeled together so you
           can see the whole picture.
         </p>
-        <SignInButton onSignIn={onSignIn} size="lg" />
+        <SignInBlock onGoogleSignIn={onGoogleSignIn} onLinkSent={onLinkSent} />
       </section>
 
       {/* Philosophy */}
@@ -227,7 +239,7 @@ export function LandingPage({ onSignIn }) {
         <p className="text-muted-foreground mb-8">
           One login. All your plans. No subscriptions.
         </p>
-        <SignInButton onSignIn={onSignIn} size="lg" />
+        <SignInBlock onGoogleSignIn={onGoogleSignIn} onLinkSent={onLinkSent} />
       </section>
 
       <footer className="border-t py-8 text-center text-xs text-muted-foreground">

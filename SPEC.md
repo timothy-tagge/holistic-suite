@@ -75,7 +75,7 @@ A personal tool built to meet specific, real needs:
 | UI             | shadcn/ui (preset `b22lmTQ0BM`), Tailwind CSS v4, design-tokens                                       |
 | API            | Firebase Cloud Functions (callable) — one function group per module                                   |
 | Database       | Firestore (Firebase project `tagge-app-suite-dev`)                                                    |
-| Auth           | Firebase Auth — Google sign-in only                                                                   |
+| Auth           | Firebase Auth — Google sign-in + Email link (passwordless magic link)                                 |
 | Hosting        | Firebase Hosting — `holistic-suite.web.app` (dev) → `holistic-view.money` (target, not yet purchased) |
 | Fonts          | Raleway Variable (headings), Inter Variable (UI), via `@fontsource-variable`                          |
 | Icons          | Lucide React                                                                                          |
@@ -590,18 +590,70 @@ No duplication of profile data in module-level documents.
 
 ---
 
+## Authentication
+
+### Providers
+
+| Provider       | Status    | Notes                                              |
+| -------------- | --------- | -------------------------------------------------- |
+| Google         | Active    | Popup flow; no email verification required         |
+| Email link     | Active    | Passwordless magic link; verification is inherent  |
+| Apple          | Deferred  | Requires permanent domain — implement post-launch  |
+
+### Landing page sign-in block
+
+Both providers share equal visual weight. Layout (top to bottom):
+
+```
+[Continue with Google]
+────────── or ──────────
+[Email                ]
+[Password             ]
+[Sign in]  [Get started]
+```
+
+- "Sign in" submits to the sign-in flow (existing account)
+- "Get started" submits to the sign-up flow (new account)
+- Forgot password link below the password field in sign-in mode
+- Toggle between sign-in and sign-up mode via a text link ("New here? Get started" / "Already have an account? Sign in")
+
+### Email link (passwordless) flow
+
+1. User enters email → clicks "Send sign-in link"
+2. Firebase sends a magic link email; email is saved to `localStorage`
+3. App shows **"Check your email"** screen with resend option
+4. User clicks the link in their email → returns to the app
+5. App detects the link on load via `isSignInWithEmailLink`
+6. If same device: reads email from `localStorage` → calls `signInWithEmailLink` → signed in
+7. If different device: shows "Confirm your email" prompt → user re-enters email → signed in
+8. New users proceed to onboarding; returning users go to the dashboard
+
+### Error handling
+
+| Firebase error code               | User-facing message                                   |
+| --------------------------------- | ----------------------------------------------------- |
+| `auth/too-many-requests`          | "Too many requests. Try again later."                 |
+| `auth/network-request-failed`     | "Network error. Check your connection and try again." |
+| (all others)                      | "Couldn't send the link. Try again."                  |
+
+---
+
 ## Onboarding
 
 ### Design principle: module-driven questions
 
-The setup flow is the direct result of clicking "Sign in with Google" on the landing page.
+The setup flow is the direct result of completing sign-in on the landing page.
 It should feel like a continuation of that experience — not a separate form.
 
 Setup has two steps. Step 1 is always the same. Step 2 is composed dynamically from the
 union of questions required by the selected modules.
 
 ```
-Landing page → Sign in with Google → Firebase Auth →
+Landing page → Sign in (Google or email/password) → Firebase Auth →
+
+  [email/password new user only]
+  → "Check your email" screen (verify before accessing app)
+  → User clicks verification link → redirected back to app
 
 Step 1: "What's part of your holistic money view?"  ← always shown; module selection
 Step 2: [questions driven by selected modules]   ← skipped if no module needs inputs
@@ -655,12 +707,12 @@ the module page shows a banner listing **all** uninitialized modules — not jus
 
 Sections (top to bottom):
 
-- **Hero** — headline, one-sentence positioning, Sign in with Google CTA
+- **Hero** — headline, one-sentence positioning, sign-in block (Google + email/password)
 - **Philosophy** — 4 pillars: invest don't save / time is the asset /
   plan the whole family / think in decades
 - **Module previews** — one card per module: what it solves, what the output looks like
 - **How it works** — 3 steps: choose what you want to see → answer a few quick questions → see the whole picture
-- **Closing CTA** — Sign in with Google
+- **Closing CTA** — sign-in block (Google + email/password)
 
 **Authenticated — dashboard**
 
