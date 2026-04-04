@@ -19,12 +19,14 @@ graph TD
         retirement["retirement/\ngetProjection · getPortfolioValue\ngetSummary"]
         college["college/\ngetPlans · computeProjection\ngetSummary · addComment"]
         alts["alts/\ngetPlans · addInvestment\naddCashFlow · computeIRR\ngetSummary"]
+        dividends["dividends/\ngetPlan · upsertPayment · deletePayment\nupsertAccount · batchImport · getSummary"]
     end
 
     subgraph DB ["Firestore (tagge-app-suite-dev)"]
         profile["profile/{uid}\n/shares · /audit"]
-        collegePlans["college-plans/{planId}"]
-        altPlans["alts-plans/{planId}"]
+        collegePlans["college-plans/{uid}"]
+        altPlans["alts-plans/{uid}"]
+        dividendPayments["dividend-payments/{uid}"]
         retirementData["holistic/{uid}\n(legacy — migrating)"]
     end
 
@@ -34,10 +36,12 @@ graph TD
     SPA -- "httpsCallable" --> retirement
     SPA -- "httpsCallable" --> college
     SPA -- "httpsCallable" --> alts
+    SPA -- "httpsCallable" --> dividends
     shared <--> profile
     retirement <--> retirementData
     college <--> collegePlans
     alts <--> altPlans
+    dividends <--> dividendPayments
 ```
 
 ---
@@ -55,6 +59,7 @@ graph LR
     App --> Retirement["/retirement\n⚠ Phase 2"]
     App --> College["/college\n⚠ Phase 3"]
     App --> Alts["/alts\n⚠ Phase 4"]
+    App --> Dividends["/dividends\nPhase 4"]
     App --> Equity["/equity\n🔒 v2"]
     App --> Property["/property\n🔒 v2"]
 
@@ -177,11 +182,23 @@ erDiagram
         string createdAt
         string updatedAt
     }
+    DIVIDEND_PAYMENT {
+        string paymentId PK
+        string ownerUid
+        string ticker
+        string date
+        float amount
+        float sharesHeld
+        float priceAtDate
+        string accountId
+        string note
+    }
 
     PROFILE ||--o{ SHARES : "profile/{uid}/shares"
     PROFILE ||--o{ AUDIT : "profile/{uid}/audit"
     PROFILE ||--o{ COLLEGE_PLAN : "ownerUid"
     PROFILE ||--o{ ALTS_PLAN : "ownerUid"
+    PROFILE ||--o{ DIVIDEND_PAYMENT : "dividend-payments/{uid}"
 ```
 
 ---
@@ -200,7 +217,8 @@ gantt
     section Modules
     Phase 2 · Retirement                 :active, 2026-03, 2026-05
     Phase 3 · College                    :2026-05, 2026-07
-    Phase 4 · Alts + Dividends           :2026-07, 2026-10
+    Phase 4 · Alts                       :done, 2026-01, 2026-04
+    Phase 4 · Dividends                  :done, 2026-01, 2026-04
 
     section Platform
     Phase 5 · Dashboard completion       :2026-10, 2026-11

@@ -20,7 +20,8 @@ test.describe("Landing page", () => {
   test("has a sign-in CTA", async ({ page }) => {
     await page.goto("/");
     // There should be a button or link that triggers Google sign-in
-    const signIn = page.getByRole("button", { name: /sign in/i })
+    const signIn = page
+      .getByRole("button", { name: /sign in/i })
       .or(page.getByRole("link", { name: /sign in/i }))
       .or(page.getByRole("button", { name: /get started/i }));
     await expect(signIn.first()).toBeVisible();
@@ -29,9 +30,11 @@ test.describe("Landing page", () => {
   test("unauthenticated user is not shown app content", async ({ page }) => {
     await page.goto("/overview");
     // Should redirect to landing or show sign-in prompt — not the app shell
-    await expect(page.getByText(/overview/i)).not.toBeVisible({ timeout: 3000 }).catch(() => {
-      // If overview text IS visible it means auth guard failed — let the assertion handle it
-    });
+    await expect(page.getByText(/overview/i))
+      .not.toBeVisible({ timeout: 3000 })
+      .catch(() => {
+        // If overview text IS visible it means auth guard failed — let the assertion handle it
+      });
     const url = page.url();
     // Should have redirected away from /overview
     expect(url).not.toMatch(/\/overview$/);

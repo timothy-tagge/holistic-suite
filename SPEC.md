@@ -8,6 +8,7 @@ that compose into a single picture.
 ## Goals & Non-Goals
 
 ### Why this exists
+
 A personal tool built to meet specific, real needs:
 
 1. **Alternative investments** — the alts ecosystem is fractured. Fund portals, emails,
@@ -28,6 +29,7 @@ A personal tool built to meet specific, real needs:
    data provider (market data, not brokerage execution).
 
 ### Explicit non-goals (v1)
+
 - Not a live brokerage API integration
 - Not a budgeting or spending tracker
 - Not a tax filing tool
@@ -40,6 +42,7 @@ A personal tool built to meet specific, real needs:
 ## Architecture
 
 ### Principles
+
 1. **API-driven** — React components never write to Firestore directly. All reads and
    writes go through the API layer. This makes every data operation testable in isolation
    and creates a clean boundary for future extraction into microservices.
@@ -66,22 +69,22 @@ A personal tool built to meet specific, real needs:
 
 ### Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19 + Vite 8, React Router v6 |
-| UI | shadcn/ui (preset `b22lmTQ0BM`), Tailwind CSS v4, design-tokens |
-| API | Firebase Cloud Functions (callable) — one function group per module |
-| Database | Firestore (Firebase project `tagge-app-suite-dev`) |
-| Auth | Firebase Auth — Google sign-in only |
-| Hosting | Firebase Hosting — `holistic-suite.web.app` (dev) → `holistic-view.money` (target, not yet purchased) |
-| Fonts | Raleway Variable (headings), Inter Variable (UI), via `@fontsource-variable` |
-| Icons | Lucide React |
-| Testing | Vitest (unit + integration), Playwright (UI smoke) |
-| CI/CD | GitHub Actions |
-| Infrastructure | Terraform (pending) — Hosting sites, Firestore rules, Functions, Storage, Pub/Sub, Auth domains |
-| File storage | Cloud Storage (future) — PDF uploads, document vetting pipeline |
-| Messaging | Pub/Sub (future) — async processing trigger between Storage and Functions |
-| AI | Gemini / Claude API (future) — PDF extraction for Alts K-1s, capital call notices |
+| Layer          | Technology                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------- |
+| Frontend       | React 19 + Vite 8, React Router v6                                                                    |
+| UI             | shadcn/ui (preset `b22lmTQ0BM`), Tailwind CSS v4, design-tokens                                       |
+| API            | Firebase Cloud Functions (callable) — one function group per module                                   |
+| Database       | Firestore (Firebase project `tagge-app-suite-dev`)                                                    |
+| Auth           | Firebase Auth — Google sign-in only                                                                   |
+| Hosting        | Firebase Hosting — `holistic-suite.web.app` (dev) → `holistic-view.money` (target, not yet purchased) |
+| Fonts          | Raleway Variable (headings), Inter Variable (UI), via `@fontsource-variable`                          |
+| Icons          | Lucide React                                                                                          |
+| Testing        | Vitest (unit + integration), Playwright (UI smoke)                                                    |
+| CI/CD          | GitHub Actions                                                                                        |
+| Infrastructure | Terraform (pending) — Hosting sites, Firestore rules, Functions, Storage, Pub/Sub, Auth domains       |
+| File storage   | Cloud Storage (future) — PDF uploads, document vetting pipeline                                       |
+| Messaging      | Pub/Sub (future) — async processing trigger between Storage and Functions                             |
+| AI             | Gemini / Claude API (future) — PDF extraction for Alts K-1s, capital call notices                     |
 
 ### API Layer
 
@@ -99,6 +102,7 @@ Response (error):
 ```
 
 Every function call:
+
 1. Verifies Firebase Auth token (rejects unauthenticated calls)
 2. Verifies the caller owns or has share access to the requested resource
 3. Writes an audit log entry (caller uid, action, resource, timestamp, ip)
@@ -152,14 +156,22 @@ functions/
     computeIRR          → run XIRR on a single investment's cash flows
     getSummary          → blended IRR, total committed, total distributions (for dashboard)
 
+  dividends/
+    getPlan             → return all payments + accounts, enriched (dividendPerShare, sharesAcquired, tickerStats, portfolio)
+    upsertPayment       → create or update a payment record; auto-derives dividendPerShare/sharesAcquired
+    deletePayment       → remove a payment by id
+    upsertAccount       → create or update a brokerage account (name, taxType)
+    batchImport         → bulk-import payments from .xlsx or .csv; deduplicates by ticker+date; max 5000 rows/call
+    getSummary          → trailing 12-month income, ticker count, paymentCount, annualBreakdown (for dashboard/Overview)
+
+    (planned — not yet built)
+    fetchPriceAtDate    → look up historical price via FMP for a given ticker + date
+    getProjectedIncome  → forward income based on analyst DGR estimates per ticker
+
   equity/
     getPlans / createPlan / updatePlan / deletePlan / setActivePlan
     addHolding / updateHolding / deleteHolding
     getSummary          → total value, projected income (for dashboard)
-    dividends/          → sub-module; same planId scope as equity
-      recordDividend    → log a dividend payment event (holdingId, exDate, payDate, amount, type)
-      getDividends      → return dividend history for a plan
-      getDividendSummary → annual income, YTD received, yield on cost per holding
 ```
 
 ### Inter-Module Data Contract
@@ -286,10 +298,19 @@ alts-plans/{planId}
     }
   ]
 
-dividends-plans/{planId}
-  ownerUid, name, isActive, createdAt, updatedAt
-  holdings: [{ id, ticker, name, shares, costBasis }]
-  dividends: [{ id, holdingId, exDate, payDate, amount, type }]
+dividend-payments/{uid}                              ← keyed by ownerUid (one document per user)
+  ownerUid, createdAt, updatedAt
+  payments[]: {
+    id, ticker, date,                                ← YYYY-MM-DD pay date
+    amount,                                          ← total cash received
+    sharesHeld?,                                     ← optional; enables true DPS calculation
+    priceAtDate?,                                    ← optional; enables DRIP sharesAcquired calculation
+    accountId?,                                      ← foreign key to accounts[]
+    note?,
+    createdAt, updatedAt
+    ← derived on read (not stored): dividendPerShare, sharesAcquired
+  }
+  accounts[]: { id, name, taxType }                  ← taxType: taxable | traditional-ira | roth-ira | other
 
 holistic/{uid}
   ← keep as-is for Overview config (existing data)
@@ -297,6 +318,7 @@ holistic/{uid}
 ```
 
 ### Encryption & backup
+
 - Encryption at rest and in transit: provided by Firebase/GCP by default (AES-256 at rest,
   TLS in transit). No additional configuration required for v1.
 - Backups: configure Firestore scheduled exports to Cloud Storage (daily, 30-day retention).
@@ -307,6 +329,7 @@ holistic/{uid}
 ## Security & Authorization
 
 ### Rules
+
 - All data is private to the owner by default. No document is readable by any other user
   unless an active share record exists.
 - Firestore security rules enforce this at the database level — the API layer enforces it
@@ -315,6 +338,7 @@ holistic/{uid}
   trail.
 
 ### Resource authorization — ID enumeration prevention
+
 Every API function that accepts a resource ID (`planId`, `investmentId`, `commentId`, etc.)
 performs an explicit ownership check before returning any data:
 
@@ -322,7 +346,7 @@ performs an explicit ownership check before returning any data:
 2. If the document does not exist → return `404 Not Found`.
 3. If `ownerUid` does not match the caller's UID → check for an active share record.
 4. If no active share exists → return `404 Not Found`.
-   *(404, not 403 — do not confirm that the resource exists to an unauthorized caller.)*
+   _(404, not 403 — do not confirm that the resource exists to an unauthorized caller.)_
 5. If a share exists but the action requires `"edit"` access and the share is `"view"` →
    return `403 Forbidden`.
 
@@ -334,6 +358,7 @@ This check is implemented once in a shared `assertAccess(callerUid, docRef, requ
 helper and called at the top of every function that touches user data. It is never skipped.
 
 ### Sharing model
+
 - Sharing is suite-wide. An owner shares with an email address and grants access to
   specific modules (or all).
 - Recipient discovers shared plans via `getProfile` — which queries for shares granted to
@@ -343,17 +368,20 @@ helper and called at the top of every function that touches user data. It is nev
   plans, cannot share further, cannot revoke
 
 ### Comments
+
 - Visible to all users with any share access to the plan (view or edit).
 - Author can edit their own comment (editedAt timestamp recorded).
 - Author can soft-delete their own comment (deletedAt set; shown as "deleted" placeholder).
 - No other user can modify another user's comment.
 
 ### Visitor presence
+
 - Every time a user opens a module tab, `getSummary` records `lastViewed` for that module.
 - The dashboard shows last-viewed timestamps per active module per shared user.
 - Provides lightweight presence awareness without real-time overhead.
 
 ### Audit trail
+
 - Every API function call writes an audit entry: who, what, when, which resource.
 - Audit log is append-only (no delete, no edit).
 - Owner can view the audit log for their own resources. Shared users cannot.
@@ -367,6 +395,7 @@ temporarily — requires explicit user confirmation before proceeding. This appl
 universally across all modules.
 
 **Triggers the confirmation dialog:**
+
 - Switching from investment mode to sleeve mode (Alts) — hides individual investment records
 - Switching from sleeve mode to investment mode when sleeve data exists — hides sleeve config
 - Deleting a plan that contains any data
@@ -374,6 +403,7 @@ universally across all modules.
 - Resetting a plan to defaults when the plan has been modified
 
 **Confirmation dialog rules:**
+
 - Clearly states what will become inaccessible
 - States whether data is recoverable ("Your investment records are preserved and can be
   restored by switching back") or permanent
@@ -388,23 +418,25 @@ Hard deletes are rare — soft delete is the default for all user data.
 ## Error Handling
 
 ### Principle
+
 Errors are handled at the API layer and surfaced to the UI via a common pattern.
 Components never write their own error handling logic — they consume a standard
 error state from a shared hook.
 
 ### Standard error codes
 
-| Code | Meaning | Default UI treatment |
-|---|---|---|
-| `auth/unauthenticated` | No valid session | Redirect to `/` landing page |
-| `auth/unauthorized` | Valid session, no access to this resource | Show "Access denied" card |
-| `not-found` | Plan or resource doesn't exist | Show empty state for the module |
-| `validation-error` | Input failed server-side validation | Inline field error message |
-| `computation-error` | Math failed (e.g., XIRR non-convergence) | Show fallback value + warning badge |
-| `network-error` | Firestore or Functions offline | Persistent toast: "Working offline — changes will sync when reconnected" |
-| `unknown` | Unexpected error | Toast: "Something went wrong" + error ID for debugging |
+| Code                   | Meaning                                   | Default UI treatment                                                     |
+| ---------------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| `auth/unauthenticated` | No valid session                          | Redirect to `/` landing page                                             |
+| `auth/unauthorized`    | Valid session, no access to this resource | Show "Access denied" card                                                |
+| `not-found`            | Plan or resource doesn't exist            | Show empty state for the module                                          |
+| `validation-error`     | Input failed server-side validation       | Inline field error message                                               |
+| `computation-error`    | Math failed (e.g., XIRR non-convergence)  | Show fallback value + warning badge                                      |
+| `network-error`        | Firestore or Functions offline            | Persistent toast: "Working offline — changes will sync when reconnected" |
+| `unknown`              | Unexpected error                          | Toast: "Something went wrong" + error ID for debugging                   |
 
 ### Implementation
+
 - `useApi(fn, params)` — shared hook. Returns `{ data, loading, error }`. On error,
   sets `error` to a standard shape `{ code, message }`.
 - Global error boundary catches uncaught render errors and shows a full-page fallback
@@ -421,6 +453,7 @@ Use `<Pencil className="h-4 w-4" />` inside a `variant="ghost" size="icon"` Butt
 Never use a text "Edit" button for section-level editing when a pencil icon fits.
 
 Placement rules:
+
 - **Top-right of a section card** — when clicking opens/edits the entire section
 - **Inline next to a specific field** — when clicking edits only that one field
 
@@ -449,6 +482,7 @@ When an inactive tab or toggle panel contains actionable information the user sh
 using one of two approaches depending on how prominent the signal needs to be:
 
 **Subtle — amber dot** (for soft suggestions or unread state):
+
 ```jsx
 <button ...>
   Probability
@@ -459,6 +493,7 @@ using one of two approaches depending on how prominent the signal needs to be:
 ```
 
 **Prominent — amber styled button with value** (for metric-driven warnings like low success rate):
+
 ```jsx
 <button
   className={
@@ -472,6 +507,7 @@ using one of two approaches depending on how prominent the signal needs to be:
 ```
 
 Rules:
+
 - Never show the indicator on the currently active tab
 - Remove the indicator once the user clicks that tab **or** the condition clears
 - Use the subtle dot for general "something to see here" signals
@@ -500,15 +536,15 @@ module's `getSummary` and applies a standard rule set. Each rule:
 
 ### Rule registry (v1)
 
-| Rule ID | Trigger condition | Severity |
-|---|---|---|
-| `profile.incomplete` | `age` or `targetRetirementYear` missing | warning |
-| `college.underfunded` | funded % < 80% and first tuition year < 5 years away | urgent |
-| `college.no-children` | active plan has no children defined | info |
-| `alts.missing-cashflows` | investment has no cash flows and vintage > 1 year ago | warning |
-| `alts.mode-sleeve-only` | mode is "sleeve" with no investments recorded | info |
-| `retirement.no-crossover` | crossover year not reached within projection window | warning |
-| `dividends.no-holdings` | active plan has no holdings | info |
+| Rule ID                   | Trigger condition                                     | Severity |
+| ------------------------- | ----------------------------------------------------- | -------- |
+| `profile.incomplete`      | `age` or `targetRetirementYear` missing               | warning  |
+| `college.underfunded`     | funded % < 80% and first tuition year < 5 years away  | urgent   |
+| `college.no-children`     | active plan has no children defined                   | info     |
+| `alts.missing-cashflows`  | investment has no cash flows and vintage > 1 year ago | warning  |
+| `alts.mode-sleeve-only`   | mode is "sleeve" with no investments recorded         | info     |
+| `retirement.no-crossover` | crossover year not reached within projection window   | warning  |
+| `dividends.no-payments`   | no payments recorded yet                              | info     |
 
 Rules are evaluated fresh on every `getActionItems` call. Items are not persisted —
 they're always derived from current data. Dismissal state (for dismissible items) is
@@ -577,12 +613,12 @@ onboarding — step 2 may have zero questions if no selected module needs upfron
 
 ### Module onboarding requirements
 
-| Module | Questions | Notes |
-|---|---|---|
-| `retirement` | Current age · Target retirement age (default: 65) | Year is computed, not asked |
-| `college` | Number of children · Monthly savings budget | Child details collected inside the module |
-| `alts` | Number of investments · Approximate total committed capital | Seeds sleeve view; investment details collected inside |
-| `equity` | TBD | Likely nothing upfront |
+| Module       | Questions                                                   | Notes                                                  |
+| ------------ | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `retirement` | Current age · Target retirement age (default: 65)           | Year is computed, not asked                            |
+| `college`    | Number of children · Monthly savings budget                 | Child details collected inside the module              |
+| `alts`       | Number of investments · Approximate total committed capital | Seeds sleeve view; investment details collected inside |
+| `equity`     | TBD                                                         | Likely nothing upfront                                 |
 
 Questions are deduplicated across modules. If two modules need the same input (e.g., age),
 it is asked once.
@@ -618,6 +654,7 @@ the module page shows a banner listing **all** uninitialized modules — not jus
 **Unauthenticated — marketing site**
 
 Sections (top to bottom):
+
 - **Hero** — headline, one-sentence positioning, Sign in with Google CTA
 - **Philosophy** — 4 pillars: invest don't save / time is the asset /
   plan the whole family / think in decades
@@ -629,12 +666,14 @@ Sections (top to bottom):
 
 Single authoritative section — no split between "Shared Infrastructure" and "Module Specs."
 
-*New user (activeModules is empty — should not normally reach dashboard, onboarding guards this):*
+_New user (activeModules is empty — should not normally reach dashboard, onboarding guards this):_
+
 - Getting-started prompt: "Choose your first module to get started"
 - Module cards: all shown, each with "Get started" CTA that activates the module
   and navigates to it
 
-*Returning user:*
+_Returning user:_
+
 - **Net worth snapshot** — total `netWorthContribution` across all active modules
 - **Retirement readiness** — % of income target covered, years to crossover (from Retirement)
 - **Per-module summary cards** — one per active module, headline metrics from `getSummary`
@@ -650,18 +689,21 @@ Single authoritative section — no split between "Shared Infrastructure" and "M
 **Purpose:** Retirement income projection across every active sleeve. "Am I on track?"
 
 **Inputs:**
+
 - Retirement target income ($/yr)
 - Current age + target retirement age (pre-filled from profile, editable here;
   edits write back to `profile/{uid}`; retirement year is computed from these two values)
 - Per-sleeve toggles (Alpha, Index, Alts, College residual, Dividends)
 
 **Outputs:**
+
 - Stacked area chart: projected annual income by sleeve over time
 - Crossover marker: year income target is met
 - Toggle: Portfolio value view (total AUM over time)
 - Sleeve summary cards: current value, projected income, % of target
 
 **Projection math (to be specced in detail before Phase 2 build):**
+
 - Each sleeve compounds annually at its configured rate
 - Income = portfolio value × distribution rate (configurable per sleeve)
 - College residual: read from `collegeGetSummary` → `netWorthContribution` (finalBalance − loanAmount)
@@ -679,31 +721,48 @@ Single authoritative section — no split between "Shared Infrastructure" and "M
 single module but a composed view of everything. Distinct from the `/` dashboard (which
 is card-based and action-oriented); Overview is a single unified read.
 
-**Status: Partially built — college data live; other modules show stubs.**
+**Status: College, Alts, and Dividends sections live. Retirement shown as stub.**
 
-**Layout:** One card per active module, stacked vertically. Below a separator, a grid of
+**Layout:** One card per active module, stacked vertically. Dividends card renders whenever
+data exists (no `activeModules` gate — it is always attempted). Below a separator, a grid of
 "Not in your plan" stub cards for inactive modules. Empty state if no modules are active.
 
 **College section** — calls `collegeGetSummary`, shows holistic-framing metrics:
 
-| Metric | Source | Notes |
-|---|---|---|
-| Post-college residual | `netWorthContribution` | Green if positive (retirement asset); red if net liability |
-| Monthly allocation | `metrics.monthlyContribution` | Cash flow currently locked into college |
-| Active years | `firstCollegeYear – lastGraduationYear` | When money flows out; when residual becomes available |
-| Funding confidence | `metrics.successRate` | Amber highlighted row (bg + border) when < 90%; green when ≥ 90%; shows `+$X/mo to reach 90%` sub-label |
-| Unfunded gap | `metrics.remainingGap` | Only shown when > 0; red value |
-| Loan repayment | `metrics.monthlyLoanPayment` | Only shown when > 0; muted value with graduation year |
+| Metric                | Source                                  | Notes                                                                                                   |
+| --------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Post-college residual | `netWorthContribution`                  | Green if positive (retirement asset); red if net liability                                              |
+| Monthly allocation    | `metrics.monthlyContribution`           | Cash flow currently locked into college                                                                 |
+| Active years          | `firstCollegeYear – lastGraduationYear` | When money flows out; when residual becomes available                                                   |
+| Funding confidence    | `metrics.successRate`                   | Amber highlighted row (bg + border) when < 90%; green when ≥ 90%; shows `+$X/mo to reach 90%` sub-label |
+| Unfunded gap          | `metrics.remainingGap`                  | Only shown when > 0; red value                                                                          |
+| Loan repayment        | `metrics.monthlyLoanPayment`            | Only shown when > 0; muted value with graduation year                                                   |
 
 **`collegeGetSummary` additions:** `metrics.successRate` and `metrics.extraMonthly` are now
 included from `plan.monteCarloResult`, making them available without a second API call.
 
-**Retirement / Alts sections** — shown as dimmed stub cards (Phase badge) when those modules
-are active but not yet built.
+**Alts section** — calls `altsGetSummary`, shows portfolio metrics:
+
+| Metric                       | Source                                     | Notes                                                              |
+| ---------------------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| Capital at work              | `metrics.totalCalled − totalDistributions` | Sub-label: investment count + total committed                      |
+| Blended IRR                  | `metrics.blendedIRR`                       | XIRR across all cash flows; "—" until distributions received       |
+| Projected Blended IRR        | `metrics.projectedBlendedIRR`              | Weighted avg of per-investment projected IRRs by committed capital |
+| DPI                          | `metrics.portfolioDPI`                     | Total distributions ÷ total called                                 |
+| Projected income (this year) | `summary.projectedAnnualIncome`            | Only shown when > 0                                                |
+
+**Dividends section** — calls `dividendsGetSummary`, shown whenever the user has payment data:
+
+| Metric                        | Source                      | Notes                                                                                                                                   |
+| ----------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Trailing 12 months            | `metrics.totalAnnualIncome` | Sub-label: ticker count + payment count                                                                                                 |
+| Per-year rows (3 most recent) | `metrics.annualBreakdown`   | Descending; current year labelled "YYYY YTD" with "Partial year" sub; YoY growth rate shown only when comparing two full calendar years |
+
+**Retirement section** — shown as dimmed stub card (Phase 2 badge).
 
 **Planned (later phases):**
+
 - Retirement section: income projection, crossover year, % of target covered
-- Alts section: blended IRR, DPI, total committed vs. distributed
 - Net worth total bar across all active modules at top of page
 
 ---
@@ -715,23 +774,27 @@ are active but not yet built.
 **Status: Built (Phase 3 complete for core features).**
 
 **Setup wizard** — collected at first visit, creates the plan:
+
 - Children: name, birth year, college cost tier (public in-state $27k · public out-of-state $45k · private $60k · elite $85k / yr, 2025 dollars) + optional manual cost override
 - Initial savings (combined 529s or any earmarked funds)
 - Planned monthly contribution
 - Expected annual return (default 6%)
 
 **Savings config** — inline edit card (pencil icon top-right), updates after save:
+
 - Current savings, monthly contribution, annual return
 - Inflation rate (default 3%; configurable 0–15%)
 - Lump sums: year, amount, optional label (e.g. "RSU vest 2027")
 - Planned loans: total loan amount, interest rate (default 6.39% — Federal Direct Unsubsidized 2025–2026), repayment term (default 10 yrs)
 
 **Children section** — inline editable rows (pencil icon per row):
+
 - Per-child: name, birth year, cost tier selector (preset buttons), manual annual cost override (currency input)
 - Choosing a tier preset populates the cost input; user can then fine-tune
 - Edits call `collegeUpdateChildren`, which re-runs Monte Carlo and refreshes the plan
 
 **Projection engine** — deterministic year-by-year simulation:
+
 - Costs inflation-adjusted from each child's college start year using configurable `inflationRate`
 - Each child uses `annualCostBase` if set, otherwise `COST_TIER_MAP[costTier]` as the base cost
 - Savings compound at `annualReturn`, plus monthly contrib + lump sums
@@ -740,12 +803,14 @@ are active but not yet built.
 - Green and red lines meet at the same zero point: `loanBalance` is held at 0 in the first crossover year so both lines share the origin before red descends
 
 **Metric cards:**
+
 1. Total projected cost (inflation-adjusted sum across all children × 4 years, using `inflationRate`)
 2. Projected at [first college year] (savings balance when first child starts)
 3. Cha-ching / Remaining gap (after planned loans; surplus shown green; "Fully funded" at zero)
 4. Monthly still needed / Monthly loan payment — uses `mc.extraMonthly` (extra $/mo to reach 90% MC success); shows monthly loan payment if plan is already fully funded
 
 **Chart toggle — Projection / Probability:**
+
 - Projection tab: deterministic savings vs. cost chart (default view)
 - Probability tab: Monte Carlo fan chart (p10–p90 bands)
 - When `successRate < 0.9` and Projection tab is active, the Probability toggle renders as an amber button
@@ -753,6 +818,7 @@ are active but not yet built.
 - Once the user clicks Probability tab, the button returns to normal styling regardless of success rate
 
 **Monte Carlo simulation** — computed server-side after every write, cached in `plan.monteCarloResult`:
+
 - 1000 simulations, ±12% annual return variance (moderate portfolio)
 - Box-Muller normal distribution, returns clamped to [−50%, +60%]
 - Success = uncovered costs ≤ planned loan amount
@@ -762,16 +828,19 @@ are active but not yet built.
 - `collegeGetPlan` lazy-backfills `monteCarloResult` for plans written before server-side MC was added
 
 **Holistic residual callout:**
+
 - When `remainingGap ≤ 0` (plan is fully funded), show a callout card below the metric cards
 - Displays the residual `finalBalance` that will be available after all college costs are covered
 - Note: this residual is an asset that feeds the holistic / retirement view via `netWorthContribution`
 
 **Inter-module output** (`collegeGetSummary`):
+
 - `netWorthContribution = finalBalance − loanAmount` (residual savings asset minus loan liability)
 - `projectedAnnualIncome: 0` (college savings don't generate income)
 - Action items: `college.fundingGap` (warning/urgent if gap > $50k), `college.loanRepayment` (info, dismissible)
 
 **Planned (not yet built):**
+
 - Multiple plans per user, plan versioning UI
 - Comment thread per plan
 - Visitor presence (last viewed timestamp per shared user)
@@ -787,11 +856,13 @@ is fragmented — this is the one place.
 Empty state: "Add your first investment" with a clear CTA.
 
 **Sleeve mode (simple):**
+
 - Single IRR + current value + annual contribution
 - For users who want a high-level projection without per-investment detail
 - Projected income fed to Overview
 
 **Investment mode (precise):**
+
 - Individual investment records: name, sponsor, vintage year, committed capital
 - Investment type taxonomy: Real Estate (with niche), Private Equity, Venture Capital,
   Private Credit, Hedge Fund, Energy, Notes/Promissory Notes, Legal Finance, Development, Other
@@ -822,22 +893,80 @@ shows a confirmation dialog if the current mode has data. No data is deleted.
 
 ### Dividends `/dividends`
 
-**Purpose:** Track dividend income across holdings over time.
+**Purpose:** Track dividend income across holdings over time. Build something better than
+the sites that exist today.
 
-**Plan versioning:** Multiple plans per user. Empty state: "Add your first holding."
+**Status: Built (Phase 4 complete for core features).**
 
-**Inputs:**
-- Holdings: ticker or name, share count, cost basis
-- Dividend events: ex-date, pay date, amount per share, type (ordinary/qualified/ROC)
+**Data model:** Flat document per user (`dividend-payments/{uid}`). No plan versioning in v1 —
+one document holds all payments and accounts for the user.
 
-**Outputs:**
-- Annual dividend income chart (by holding, by year)
-- YTD received vs. prior year
-- Yield on cost per holding
-- Projected forward income based on trailing dividend rate
-- Feed projected annual income to Overview
+**Payment entry:**
 
-**Build from scratch. Phase 4.**
+- Required: ticker (auto-uppercased), pay date (YYYY-MM-DD), amount received ($)
+- Optional: shares held (enables true DPS = amount ÷ shares), price at date (enables DRIP
+  sharesAcquired = amount ÷ price), account, note
+- Payments are keyed by auto-generated ID; deduplication on import uses ticker + date
+
+**Accounts:**
+
+- Brokerage accounts with name and tax type (taxable / traditional-IRA / Roth IRA / other)
+- Account management accessible via "Accounts" button at top of page (visible from empty state)
+- Payments can be tagged to an account; filtering by account available on chart
+
+**Bulk import:**
+
+- Upload `.xlsx` or `.csv` — column auto-detection (TransactionDate/Date, Symbol/Ticker, Amount)
+- Excel serial dates converted to ISO automatically
+- Preview shows first 8 rows + total count before committing
+- Deduplicates against existing payments by ticker + date; reports imported vs. skipped count
+
+**Income chart — Monthly view:**
+
+- Grouped bar chart: Jan–Dec on X-axis, one bar per calendar year
+- Filters: click a ticker card to filter to that ticker; account dropdown filter
+- Both filters apply to chart simultaneously; "Clear filters" resets both
+
+**Income chart — Annual view:**
+
+- Line chart: years on X-axis, total annual income on Y-axis (one data point per year)
+- Same ticker + account filters apply
+- Current year labelled "YYYY YTD" in axis and cards; YoY growth only calculated between full years
+
+**Ticker summary grid:**
+
+- One card per ticker, sortable by name (alphabetical) or amount (total received, descending)
+- Search input for partial ticker name match (deferred rendering — no keystroke lag)
+- Click a ticker card to filter chart + payment list to that ticker
+
+**Per-ticker metrics (computed server-side, returned by `getPlan`):**
+
+- `totalReceived` — lifetime sum of payment amounts
+- `totalSharesAcquired` — sum of DRIP shares (only when `priceAtDate` present)
+- `latestDPS` — most recent dividend per share (only when `sharesHeld` present)
+- `dpsGrowthRate` — % change between last two payments that have a DPS value
+
+**Payment history:**
+
+- Paginated at 25 rows per page; most recent first within active filter
+- Page resets to 1 when ticker filter changes
+- Edit (pencil) and delete (trash) per row; delete requires confirmation dialog
+
+**Annual income summary card:**
+
+- Shows per-calendar-year totals, most recent first, current year labelled "YYYY YTD"
+
+**Inter-module output** (`dividendsGetSummary`):
+
+- `projectedAnnualIncome = portfolio.totalAnnualIncome` (trailing 12-month income)
+- `metrics.annualBreakdown` — `[{ year, income }]` descending, used by Overview card
+
+**Planned (not yet built):**
+
+- `fetchPriceAtDate` — look up historical price via FMP for auto-populating `priceAtDate`
+- `getProjectedIncome` — forward income projection per ticker based on analyst DGR estimates
+- CSV import result with per-row error detail
+- Multiple plans per user (plan versioning UI)
 
 ---
 
@@ -849,16 +978,19 @@ enhanced sub-view within Equity — not a separate tab.
 **Plan versioning:** Multiple plans per user. Empty state: "Add your first holding."
 
 **Inputs:**
+
 - Holdings: ticker or name, share count, cost basis, asset type (stock / index / mutual fund)
 - Annual contribution
 - Expected return rate
 
 **Outputs:**
+
 - Portfolio value chart over time
 - Total value, unrealized gain, projected annual income
 - Feed projected income to Overview sleeve
 
 **Dividends sub-view `/equity/dividends`:**
+
 - Available only for holdings typed as stocks
 - Dividend event log: ex-date, pay-date, amount per share, type (ordinary / qualified / ROC)
 - Annual dividend income chart by holding and by year
@@ -904,6 +1036,7 @@ ever touches production Firestore.
 ## Testing Strategy
 
 ### Unit tests (Vitest, mocked data)
+
 - All projection math functions: `computeProjection` (college), `computeIRR` (alts XIRR),
   `computeOverviewProjection`, `computeCrossoverYear`
 - All action item rule functions — given mock `getSummary` data, assert correct items generated
@@ -911,6 +1044,7 @@ ever touches production Firestore.
 - Target: every pure function in `functions/` and `src/utils/` has a unit test
 
 ### Integration tests (Vitest + Firebase emulator)
+
 - Full API call round-trips: call a Cloud Function against the emulator, assert Firestore state
 - Auth enforcement: unauthenticated call → `auth/unauthenticated`, wrong user → `auth/unauthorized`
 - Share flow: owner grants access → recipient can read → owner revokes → recipient cannot read
@@ -918,6 +1052,7 @@ ever touches production Firestore.
 - Audit log: after each write operation, assert audit entry was created
 
 ### UI smoke tests (Playwright)
+
 - Sign in with test Google account
 - Dashboard loads and displays module summary cards
 - Navigate to each active module — page renders without error
@@ -931,6 +1066,7 @@ ever touches production Firestore.
 ## Migration Plan
 
 ### Phase 1 — Scaffold ✅ COMPLETE
+
 - New repo: `timothy-tagge/holistic-suite`
 - Vite + React + React Router + shadcn + Tailwind + Firebase + design-tokens
 - AppHeader (nav tabs, dark mode toggle, avatar → /profile, sign out), AuthGate, router
@@ -944,6 +1080,7 @@ dashboard. Profile is persisted to Firestore via Cloud Functions. Avatar in AppH
 links to profile settings.
 
 **Learnings captured in CLAUDE.md:**
+
 - `patchProfile` must handle null profile (use updates directly, not no-op)
 - Route-guard redirects are safer than imperative `navigate()` after state changes
 - `updateProfile` must upsert (not require doc to pre-exist)
@@ -952,6 +1089,7 @@ links to profile settings.
 - Each new hosting domain needs manual auth whitelisting in Firebase + Google OAuth
 
 ### Phase 2 — Migrate Retirement
+
 - Move projection logic from `HolisticPlanner.jsx` into `retirement/getProjection` Cloud Function
 - Write unit tests for the projection math (this is the first time it's formally tested)
 - Build `shared/aggregateModules` stub (returns mock data for unbuilt modules)
@@ -964,6 +1102,7 @@ loaded via the API. Unit tests green.
 ### Phase 3 — Migrate College ✓ (core complete)
 
 **Done:**
+
 - `College.jsx` built from scratch (not migrated from `college-endowment-plan.jsx`)
 - shadcn/ui throughout — no inline styles, no hardcoded hex colors
 - Setup wizard: children (name, birth year, cost tier + optional manual cost), savings, monthly contrib, annual return
@@ -984,17 +1123,20 @@ loaded via the API. Unit tests green.
 - Chart crossover: green savings line and red loan line share zero point at first crossover year
 
 **Remaining for full Phase 3 completion:**
+
 - Multiple plans per user + plan versioning UI
 - Comment thread via API
 - Visitor presence via `getSummary`
 - Integration tests
 
 ### Phase 4 — Alts + Dividends (new)
+
 - Build Alts: sleeve mode first, then investment mode with XIRR
 - Build Dividends: holdings + dividend event log + income chart
 - Both modules wire `projectedAnnualIncome` into Overview via `getSummary`
 
 ### Phase 5 — Dashboard completion
+
 - `aggregateModules` now has real data from all Phase 4 modules
 - Action items fully implemented across all active modules
 - Milestones timeline populated
@@ -1006,6 +1148,7 @@ scattered across fund portals, email, and postal mail. Manual data entry is erro
 and slow.
 
 **Architecture:**
+
 ```
 User uploads PDF → Cloud Storage
                  → Pub/Sub trigger
@@ -1016,23 +1159,27 @@ User uploads PDF → Cloud Storage
 ```
 
 **Supported document types (v1):**
+
 - Capital call notices → pre-fills a `call` cash flow event
 - Distribution notices → pre-fills a `distribution-income` or `distribution-roc` event
 - K-1 forms → extracts partnership income/loss for tax reference (display only, not written to plan)
 
 **Rules:**
+
 - AI-extracted data is always shown as a **suggested entry** — never auto-committed
 - User reviews the suggestion, edits if needed, then confirms
 - Original PDF stored in Cloud Storage at `gs://tagge-app-suite-dev.appspot.com/users/{uid}/docs/{planId}/{docId}`
 - Extraction confidence score shown alongside suggestion; low-confidence fields highlighted
 
 **Terraform scope for Phase 6:**
+
 - Cloud Storage bucket + lifecycle rules
 - Pub/Sub topic + subscription
 - Cloud Function service account with least-privilege IAM
 - Secret Manager entry for AI API key
 
 ### Phase 7 — Infrastructure as Code (Terraform)
+
 - `terraform/` directory in holistic-suite repo
 - Covers: Hosting sites, Firestore rules deployment, Functions IAM, Storage buckets,
   Pub/Sub topics, Cloud Scheduler jobs, Auth domain config, Secret Manager
@@ -1042,10 +1189,10 @@ User uploads PDF → Cloud Storage
 
 ## What Gets Retired
 
-| Repo | When | Action |
-|---|---|---|
-| `holistic-planner` | After Phase 2 | Add redirect banner: "Holistic Planner has moved → holistic-view.money/retirement". Archive repo. |
-| `college-funding-endowment` | After Phase 3 | Add redirect banner: "College Planner has moved → holistic-view.money/college". Archive repo. |
+| Repo                        | When          | Action                                                                                            |
+| --------------------------- | ------------- | ------------------------------------------------------------------------------------------------- |
+| `holistic-planner`          | After Phase 2 | Add redirect banner: "Holistic Planner has moved → holistic-view.money/retirement". Archive repo. |
+| `college-funding-endowment` | After Phase 3 | Add redirect banner: "College Planner has moved → holistic-view.money/college". Archive repo.     |
 
 Firestore data: untouched. Same project, same collections, same UIDs.
 The new API layer reads from the same documents. No migration scripts needed.

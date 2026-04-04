@@ -14,6 +14,13 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+    // Pixel 5 defaults to chromium — tests mobile viewport (393×851, sm breakpoint not reached)
+    { name: "chromium-mobile", use: { ...devices["Pixel 5"] } },
+    // Custom tablet viewport using chromium (768px — sm: breakpoint active, md: not yet)
+    {
+      name: "chromium-tablet",
+      use: { browserName: "chromium", viewport: { width: 768, height: 1024 } },
+    },
   ],
   // Start dev server automatically when running locally
   webServer: process.env.CI
