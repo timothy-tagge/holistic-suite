@@ -22,6 +22,63 @@
 - Production launch is gated on Plaid's review of the app and privacy policy — timeline is 1–2 weeks and outside our control; plan for this in any launch schedule
 - 401k data quality issues (missing tickers, estimated balances) will require defensive UI that handles partial data gracefully — do not assume clean data from any institution
 
+## Cost
+
+### Plaid tiers
+
+| Tier | Price | Real users | Use case |
+|---|---|---|---|
+| Sandbox | Free | No (test credentials only) | Development and automated testing |
+| Development | Free | Up to 100 Items | Beta / private testing with real accounts |
+| Production | Per Item/month (see below) | Unlimited | Required for any public-facing launch |
+
+**Production pricing** is not publicly listed — negotiated with Plaid's sales team.
+Publicly known ballpark rates (as of 2024–2025):
+
+| Product used | Estimated cost per Item/month |
+|---|---|
+| Accounts (balances only) | ~$0.25–$0.50 |
+| Investments (holdings + transactions) | ~$0.80–$1.50 |
+| Auth + Investments (combined) | ~$1.00–$2.00 |
+
+"Item" = one connected institution per user (e.g. one user connecting Fidelity + Schwab = 2 Items).
+
+**Projected monthly Plaid cost by user count:**
+
+| Active users | Avg Items/user | Monthly Plaid cost (est.) |
+|---|---|---|
+| 1–10 (Development tier) | 2 | **$0** (free Development tier) |
+| 10–100 (Development tier) | 2 | **$0** (up to 100 Items free) |
+| 100–500 | 2 | **$160–$1,000/month** |
+| 500–1,000 | 2 | **$800–$3,000/month** |
+| 1,000+ | 2–3 | Negotiate volume pricing with Plaid |
+
+The Development tier's 100 free Items gives meaningful beta runway (50 users with
+2 accounts each) before any cost is incurred. Plan the Production pricing conversation
+with Plaid before crossing 80 Items in Development.
+
+### Cloud KMS (token encryption)
+Plaid access tokens must be encrypted at rest. Options:
+
+| Option | Cost | Notes |
+|---|---|---|
+| Firebase Secret Manager (envelope encryption) | ~$0.06/10k operations | Effectively free at this scale; already available in the project |
+| Cloud KMS key ring | $0.06/key/month + $0.03/10k operations | Marginally more complex setup; negligible cost |
+
+Either option costs less than $1/month at any realistic user volume. Use Firebase
+Secret Manager to stay within the existing toolset.
+
+### Summary
+
+| Stage | Monthly cost |
+|---|---|
+| Development / beta (≤100 Items) | **$0** |
+| Early Production (100–500 users) | **~$160–$1,000/month** |
+| Growth (500–1,000 users) | **~$800–$3,000/month** |
+
+Plaid is the primary cost driver. Model this against any monetization plan before
+committing to a Production launch timeline.
+
 ---
 
 ## Problem

@@ -22,6 +22,19 @@
 - Dark mode variants for images add ~half a day if using real screenshots; free with SVG/undraw
 - Responsive behavior of the hero split layout needs careful testing at 375px (iPhone SE)
 
+## Cost
+
+**No ongoing costs for any option.**
+
+| Asset option | One-time cost | Ongoing cost | Notes |
+|---|---|---|---|
+| Option A — Coded SVG mockups | Developer time only | $0 | Self-hosted in the repo; update when UI changes |
+| Option B — Real screenshots | Developer time only | $0 | Retake when UI changes; stored in `public/` |
+| Option C — undraw.co illustrations | $0 | $0 | Free for commercial use; SVG files stored in repo |
+
+No external image hosting, CDN, or design tool subscription is required. All assets
+are committed to the repo and served via Firebase Hosting (already in use).
+
 ---
 
 ## Problem

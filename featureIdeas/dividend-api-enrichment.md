@@ -19,6 +19,41 @@
 - FMP rate limits: a user with 50 tickers triggers 50+ API calls on first load; the shared cache mitigates this but the first-user-per-ticker path needs backoff and queuing logic
 - ETF and international ticker edge cases will surface during testing; budget a half day for those fixes
 
+## Cost
+
+### Financial Modeling Prep (FMP)
+
+| Tier | Price | API calls/day | Endpoints available | Suitable for |
+|---|---|---|---|---|
+| Free | $0/month | 250 | Basic quote + profile only | Development / personal use only |
+| Starter | $19/month | Unlimited | Dividend history, income statement, cash flow | Phase 1 + Phase 2 ✓ |
+| Professional | $49/month | Unlimited | All Starter + bulk endpoints, priority support | Phase 3 + scale |
+| Enterprise | Custom | Unlimited | Dedicated infrastructure, SLA | High traffic |
+
+**Recommended plan: Starter ($19/month)**
+- Covers all endpoints needed for Phases 1 and 2
+- Free tier's 250 calls/day limit is exhausted by a single user with ~80 tickers
+  (each ticker requires 3–4 endpoint calls for the full enrichment set)
+- The shared Firestore cache significantly reduces call volume after the first fetch
+  per ticker — a portfolio of 50 unique tickers generates ~200 FMP calls once,
+  then zero calls for 24 hours regardless of how many users view those tickers
+
+**Projected monthly FMP cost by user count:**
+
+| Active users | Unique tickers (est.) | Monthly FMP cost |
+|---|---|---|
+| 1–5 (personal / beta) | ~100 | **$19/month** (Starter) |
+| 10–50 | ~300 | **$19/month** (Starter, cache absorbs volume) |
+| 50–500 | ~1,000 | **$19–$49/month** (monitor cache hit rate) |
+| 500+ | 2,000+ | **$49+/month** — evaluate bulk endpoints |
+
+The shared cache is the key cost control: once any user triggers a fetch for AAPL,
+all subsequent users that day get it from Firestore at zero FMP cost.
+
+### Firebase (existing project)
+- Firestore reads/writes for the enrichment cache are negligible at this scale
+- No additional Firebase plan upgrade required
+
 ---
 
 ## Problem

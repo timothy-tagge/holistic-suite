@@ -17,6 +17,12 @@
 - Phase 2 adds one new step to an existing dialog; the parser is already format-agnostic so the work is entirely UI state and three dropdowns
 - No backend changes required for either phase
 
+## Cost
+
+**No ongoing costs.** This feature has no third-party integrations. All logic runs
+client-side or in existing Cloud Functions. ExcelJS (already in the project) handles
+parsing. No new npm packages, no APIs, no subscriptions required.
+
 ---
 
 ## Problem
