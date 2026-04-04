@@ -903,8 +903,8 @@ export function Dividends() {
   }
 
   const accounts = plan?.accounts ?? [];
-  const allPayments = plan?.payments ?? [];
-  const tickerStats = plan?.tickerStats ?? {};
+  const allPayments = useMemo(() => plan?.payments ?? [], [plan?.payments]);
+  const tickerStats = useMemo(() => plan?.tickerStats ?? {}, [plan?.tickerStats]);
   const portfolio = plan?.portfolio;
 
   const sortedPayments = useMemo(() => {

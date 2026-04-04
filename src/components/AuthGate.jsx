@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signOut,
   isSignInWithEmailLink,
   signInWithEmailLink,
 } from "firebase/auth";
@@ -72,29 +73,29 @@ function Shell({ user, children }) {
 export function AuthGate({ children }) {
   const [user, setUser] = useState(undefined); // undefined = still loading
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState(null);
-  const [linkSignInEmail, setLinkSignInEmail] = useState(null);
+  const [linkSignInEmail, setLinkSignInEmail] = useState(() => {
+    // Detect incoming magic link synchronously at mount — avoids setState in effect
+    if (!isSignInWithEmailLink(auth, window.location.href)) return null;
+    const stored = window.localStorage.getItem("emailForSignIn");
+    return stored ? null : "prompt"; // null = same-device (handled in effect below)
+  });
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUser(u ?? null));
   }, []);
 
-  // Handle incoming email sign-in link on page load
+  // Handle same-device magic link sign-in on page load
   useEffect(() => {
     if (!isSignInWithEmailLink(auth, window.location.href)) return;
-
     const stored = window.localStorage.getItem("emailForSignIn");
-    if (stored) {
-      signInWithEmailLink(auth, stored, window.location.href)
-        .then(() => {
-          window.localStorage.removeItem("emailForSignIn");
-          // Clean the link params from the URL without a reload
-          window.history.replaceState(null, "", window.location.pathname);
-        })
-        .catch(console.error);
-    } else {
-      // Opened on a different device — need to ask for email
-      setLinkSignInEmail("prompt");
-    }
+    if (!stored) return; // different-device case handled via linkSignInEmail initial state
+    signInWithEmailLink(auth, stored, window.location.href)
+      .then(() => {
+        window.localStorage.removeItem("emailForSignIn");
+        // Clean the link params from the URL without a reload
+        window.history.replaceState(null, "", window.location.pathname);
+      })
+      .catch(console.error);
   }, []);
 
   function handleGoogleSignIn() {
