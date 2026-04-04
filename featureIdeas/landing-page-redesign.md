@@ -4,6 +4,24 @@
 **Module:** Landing / Marketing
 **Priority:** Medium — first impression for new users; current page reads as a list of features, not a value proposition
 
+## Implementation Estimate
+
+| Phase | Scope | Estimate |
+|---|---|---|
+| Layout rebuild | New section structure, hero split layout, alternating feature rows, updated typography scale | 1–2 days |
+| Visual assets | undraw.co illustrations (Option C) sourced and integrated | 2–4 hours |
+| Visual assets | Real screenshots with sample data (Option B) — capture, export WebP, integrate | 4–6 hours |
+| Visual assets | Coded SVG mockups (Option A) — build simplified dashboard/chart illustrations | 3–5 days |
+| **Total (with Option C)** | Layout + undraw illustrations | **~2 days** |
+| **Total (with Option B)** | Layout + real screenshots | **~2.5 days** |
+| **Total (with Option A)** | Layout + coded mockups | **~1 week** |
+
+**Complexity notes:**
+- The layout work itself is straightforward — React + Tailwind, no new dependencies
+- The bottleneck is visual assets; Option C (undraw.co) unblocks everything fastest
+- Dark mode variants for images add ~half a day if using real screenshots; free with SVG/undraw
+- Responsive behavior of the hero split layout needs careful testing at 375px (iPhone SE)
+
 ---
 
 ## Problem

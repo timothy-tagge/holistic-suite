@@ -4,6 +4,21 @@
 **Module:** Dividends
 **Priority:** High — transforms the module from a payment tracker into a dividend health dashboard
 
+## Implementation Estimate
+
+| Phase | Scope | Estimate |
+|---|---|---|
+| Phase 1 | Secret Manager setup, `getEnrichment` + `refreshTicker` Cloud Functions, next ex-date + pay date + annualized rate only, ticker card UI update | 3–4 days |
+| Phase 2 | Multi-year CAGR computation, FCF coverage ratio, earnings/CF growth, full ticker card health section, unit tests for all helpers | 3–4 days |
+| Phase 3 | Weighted portfolio averages, streak badge, portfolio health score | 2 days |
+| **Total** | All phases | **~2 weeks** |
+
+**Complexity notes:**
+- Secret Manager + FMP API wiring is the highest-risk step — account for setup time and sandbox testing
+- CAGR computation across 1/3/5/10 year windows requires careful handling of tickers with short history (IPOs, spinoffs) — null-safe throughout
+- FMP rate limits: a user with 50 tickers triggers 50+ API calls on first load; the shared cache mitigates this but the first-user-per-ticker path needs backoff and queuing logic
+- ETF and international ticker edge cases will surface during testing; budget a half day for those fixes
+
 ---
 
 ## Problem

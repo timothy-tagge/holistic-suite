@@ -4,6 +4,19 @@
 **Module:** Dividends
 **Priority:** Medium — broadens user base beyond a single brokerage format
 
+## Implementation Estimate
+
+| Phase | Scope | Estimate |
+|---|---|---|
+| Phase 1 | Extend alias lists, add `detectColumns` unit tests for each broker format | 2–3 hours |
+| Phase 2 | Column mapping UI step inside `ImportDialog`, integration tests | 1–2 days |
+| **Total** | Both phases | **~2 days** |
+
+**Complexity notes:**
+- Phase 1 is a pure data change — no UI, no new functions, tests write themselves
+- Phase 2 adds one new step to an existing dialog; the parser is already format-agnostic so the work is entirely UI state and three dropdowns
+- No backend changes required for either phase
+
 ---
 
 ## Problem

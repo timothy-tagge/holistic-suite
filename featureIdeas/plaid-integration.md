@@ -4,6 +4,24 @@
 **Modules:** Retirement (Overview), Dividends, Alts (partial)
 **Priority:** High — eliminates manual data entry; dramatically increases data accuracy and user retention
 
+## Implementation Estimate
+
+| Phase | Scope | Estimate |
+|---|---|---|
+| Phase 1 | Plaid Link widget, `createLinkToken` + `exchangeToken` + `sync` Cloud Functions, token encryption, holdings + dividend transactions in Firestore, connected accounts UI in Profile, manual "Sync now", Dividends page shows Plaid-sourced payments | 1–1.5 weeks |
+| Phase 2 | Account-to-sleeve mapping UI in Retirement, auto-populate sleeve balances, Cloud Scheduler daily sync | 3–4 days |
+| Phase 3 | Webhook endpoint, re-auth flow, user notifications for expired items | 2–3 days |
+| Legal / compliance | Privacy policy update, Plaid Production approval process | 1–3 days (writing) + variable (Plaid review timeline) |
+| **Total (Phase 1 only)** | Connect + sync + Dividends integration | **~1.5 weeks** |
+| **Total (all phases)** | Full integration including webhooks and retirement mapping | **~3 weeks** (code) + Plaid review |
+
+**Complexity notes:**
+- Token encryption is non-negotiable before any real user data is connected; budget a full day for Cloud KMS or envelope encryption setup
+- Plaid Link on iOS Safari requires `redirectUri` configuration for OAuth institutions (Chase, Wells Fargo) — this is a common gotcha that adds 0.5–1 day if not anticipated
+- Plaid Sandbox credentials work immediately; Development (real accounts) requires a Plaid account approval step (~1–2 business days)
+- Production launch is gated on Plaid's review of the app and privacy policy — timeline is 1–2 weeks and outside our control; plan for this in any launch schedule
+- 401k data quality issues (missing tickers, estimated balances) will require defensive UI that handles partial data gracefully — do not assume clean data from any institution
+
 ---
 
 ## Problem
