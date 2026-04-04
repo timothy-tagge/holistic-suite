@@ -18,9 +18,9 @@ function Shell({ user, children }) {
   if (isOnboarding) return children;
 
   return (
-    <div className="flex flex-col min-h-svh">
+    <div className="flex flex-col min-h-svh overflow-x-hidden w-full max-w-[100vw]">
       <AppHeader user={user} onSignOut={handleSignOut} />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 min-w-0">{children}</main>
     </div>
   );
 }

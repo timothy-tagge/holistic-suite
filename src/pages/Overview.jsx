@@ -13,6 +13,7 @@ import {
   Layers,
   TrendingUp,
   ArrowRight,
+  DollarSign,
 } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -31,10 +32,21 @@ function fmtPct(rate) {
 
 function MetricRow({ label, value, sub, valueClass, rowClass }) {
   return (
-    <div className={["flex items-start justify-between gap-4 py-3 px-3 -mx-3 rounded-md", rowClass].filter(Boolean).join(" ")}>
+    <div
+      className={[
+        "flex items-start justify-between gap-4 py-3 px-3 -mx-3 rounded-md",
+        rowClass,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <span className="text-sm text-muted-foreground">{label}</span>
       <div className="text-right">
-        <span className={["text-sm font-medium font-mono tabular-nums", valueClass].filter(Boolean).join(" ")}>
+        <span
+          className={["text-sm font-medium font-mono tabular-nums", valueClass]
+            .filter(Boolean)
+            .join(" ")}
+        >
           {value}
         </span>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
@@ -52,6 +64,7 @@ function CollegeSection({ initialized }) {
 
   useEffect(() => {
     if (!initialized) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const fn = httpsCallable(functions, "collegeGetSummary");
     fn()
@@ -95,7 +108,9 @@ function CollegeSection({ initialized }) {
       <CardContent>
         {!initialized && (
           <div className="flex items-center justify-between py-2">
-            <p className="text-sm text-muted-foreground">Set up your college plan to see it here.</p>
+            <p className="text-sm text-muted-foreground">
+              Set up your college plan to see it here.
+            </p>
             <Button size="sm" variant="outline" asChild>
               <Link to="/college">Set up</Link>
             </Button>
@@ -106,9 +121,7 @@ function CollegeSection({ initialized }) {
           <p className="text-sm text-muted-foreground py-3">Loading…</p>
         )}
 
-        {initialized && error && (
-          <p className="text-sm text-destructive py-3">{error}</p>
-        )}
+        {initialized && error && <p className="text-sm text-destructive py-3">{error}</p>}
 
         {initialized && m && (
           <div className="divide-y divide-border">
@@ -116,23 +129,21 @@ function CollegeSection({ initialized }) {
             <MetricRow
               label="Post-college residual"
               value={
-                netWorth === 0
-                  ? "—"
-                  : (isNetAsset ? "+" : "−") + fmt(Math.abs(netWorth))
+                netWorth === 0 ? "—" : (isNetAsset ? "+" : "−") + fmt(Math.abs(netWorth))
               }
               sub={
                 isNetAsset
                   ? "Flows into retirement savings after last graduation"
                   : isNetLiability
-                  ? "Planned loans exceed projected balance — net liability"
-                  : "Plan exactly covers costs"
+                    ? "Planned loans exceed projected balance — net liability"
+                    : "Plan exactly covers costs"
               }
               valueClass={
                 isNetAsset
                   ? "text-green-700 dark:text-green-400"
                   : isNetLiability
-                  ? "text-destructive"
-                  : undefined
+                    ? "text-destructive"
+                    : undefined
               }
             />
 
@@ -167,8 +178,8 @@ function CollegeSection({ initialized }) {
                   m.successRate < 0.9 && m.extraMonthly > 0
                     ? `+${fmt(m.extraMonthly)}/mo to reach 90%`
                     : m.successRate >= 0.9
-                    ? "≥90% probability of full coverage"
-                    : undefined
+                      ? "≥90% probability of full coverage"
+                      : undefined
                 }
                 valueClass={
                   m.successRate >= 0.9
@@ -257,9 +268,7 @@ function AltsSection() {
         </div>
       </CardHeader>
       <CardContent>
-        {loading && (
-          <p className="text-sm text-muted-foreground py-3">Loading…</p>
-        )}
+        {loading && <p className="text-sm text-muted-foreground py-3">Loading…</p>}
 
         {!loading && (empty || (!summary && !error)) && (
           <div className="flex items-center justify-between py-2">
@@ -270,21 +279,45 @@ function AltsSection() {
           </div>
         )}
 
-        {!loading && error && (
-          <p className="text-sm text-destructive py-3">{error}</p>
-        )}
+        {!loading && error && <p className="text-sm text-destructive py-3">{error}</p>}
 
         {!loading && m && (
           <div className="divide-y divide-border">
             <MetricRow
               label="Capital at work"
-              value={m.totalCalled > 0 ? "$" + Math.round(m.totalCalled - m.totalDistributions).toLocaleString() : "—"}
-              sub={m.investmentCount > 0 ? `${m.investmentCount} investment${m.investmentCount !== 1 ? "s" : ""} · $${Math.round(m.totalCommitted).toLocaleString()} committed` : "No investments yet"}
+              value={
+                m.totalCalled > 0
+                  ? "$" +
+                    Math.round(m.totalCalled - m.totalDistributions).toLocaleString()
+                  : "—"
+              }
+              sub={
+                m.investmentCount > 0
+                  ? `${m.investmentCount} investment${m.investmentCount !== 1 ? "s" : ""} · $${Math.round(m.totalCommitted).toLocaleString()} committed`
+                  : "No investments yet"
+              }
             />
             <MetricRow
               label="Blended IRR"
               value={m.blendedIRR != null ? (m.blendedIRR * 100).toFixed(1) + "%" : "—"}
-              sub={m.blendedIRR != null ? "XIRR across all cash flows" : "Needs distributions to compute"}
+              sub={
+                m.blendedIRR != null
+                  ? "XIRR across all cash flows"
+                  : "Needs distributions to compute"
+              }
+            />
+            <MetricRow
+              label="Projected Blended IRR"
+              value={
+                m.projectedBlendedIRR != null
+                  ? (m.projectedBlendedIRR * 100).toFixed(1) + "%"
+                  : "—"
+              }
+              sub={
+                m.projectedBlendedIRR != null
+                  ? "Weighted avg of projected IRRs"
+                  : "Needs investment projections"
+              }
             />
             <MetricRow
               label="DPI"
@@ -314,6 +347,97 @@ function AltsSection() {
   );
 }
 
+// ── Dividends section ─────────────────────────────────────────────────────────
+
+function DividendsSection() {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fn = httpsCallable(functions, "dividendsGetSummary");
+    fn()
+      .then((r) => {
+        if (r.data.ok) setSummary(r.data.data.summary);
+      })
+      .catch((err) => {
+        if (err.code !== "functions/not-found")
+          setError(err.message ?? "Failed to load.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Nothing to show if no data yet
+  if (!loading && !summary && !error) return null;
+
+  const m = summary?.metrics;
+  const breakdown = m?.annualBreakdown ?? [];
+  const currentYear = String(new Date().getFullYear());
+
+  // YoY growth: only compare two full calendar years (skip if most recent is partial)
+  let yoyGrowth = null;
+  if (breakdown.length >= 2 && breakdown[0].year !== currentYear) {
+    const [latest, prior] = breakdown;
+    if (prior.income > 0) yoyGrowth = (latest.income - prior.income) / prior.income;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+              <DollarSign className="h-4 w-4 text-primary" />
+            </div>
+            <CardTitle className="font-heading text-base">Dividends</CardTitle>
+          </div>
+          <Button variant="ghost" size="sm" className="gap-1 text-xs h-7" asChild>
+            <Link to="/dividends">
+              Details <ArrowRight className="h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {loading && <p className="text-sm text-muted-foreground py-3">Loading…</p>}
+        {error && <p className="text-sm text-destructive py-3">{error}</p>}
+
+        {m && (
+          <div className="divide-y divide-border">
+            <MetricRow
+              label="Trailing 12 months"
+              value={fmt(m.totalAnnualIncome)}
+              sub={`${m.tickerCount} ticker${m.tickerCount !== 1 ? "s" : ""} · ${m.paymentCount.toLocaleString()} payments`}
+              valueClass="text-green-700 dark:text-green-400"
+            />
+            {breakdown.slice(0, 3).map(({ year, income }, i) => (
+              <MetricRow
+                key={year}
+                label={year === currentYear ? `${year} YTD` : year}
+                value={fmt(income)}
+                sub={
+                  year === currentYear
+                    ? "Partial year"
+                    : i === 0 && yoyGrowth != null
+                      ? `${yoyGrowth >= 0 ? "+" : ""}${Math.round(yoyGrowth * 100)}% vs ${breakdown[1].year}`
+                      : undefined
+                }
+                valueClass={
+                  year !== currentYear && i === 0 && yoyGrowth != null
+                    ? yoyGrowth >= 0
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-destructive"
+                    : undefined
+                }
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Stub for modules not yet built ────────────────────────────────────────────
 
 function ModuleStub({ icon: Icon, label, description, href, phase }) {
@@ -325,7 +449,9 @@ function ModuleStub({ icon: Icon, label, description, href, phase }) {
             <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
               <Icon className="h-4 w-4 text-muted-foreground" />
             </div>
-            <CardTitle className="font-heading text-base text-muted-foreground">{label}</CardTitle>
+            <CardTitle className="font-heading text-base text-muted-foreground">
+              {label}
+            </CardTitle>
           </div>
           <Badge variant="outline" className="text-xs">
             {phase}
@@ -367,9 +493,7 @@ export function Overview() {
 
       <div className="space-y-4">
         {/* College */}
-        {collegeActive && (
-          <CollegeSection initialized={collegeInitialized} />
-        )}
+        {collegeActive && <CollegeSection initialized={collegeInitialized} />}
 
         {/* Retirement stub */}
         {retirementActive && (
@@ -384,6 +508,9 @@ export function Overview() {
 
         {/* Alts */}
         {altsActive && <AltsSection />}
+
+        {/* Dividends — shown whenever data exists, no activeModules gate */}
+        <DividendsSection />
 
         {/* No active modules */}
         {!collegeActive && !retirementActive && !altsActive && (

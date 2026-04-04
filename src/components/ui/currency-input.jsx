@@ -7,7 +7,10 @@ import { formatWithCommas } from "@/lib/formatNumber";
  * `onChange` is called with the formatted string value (not a synthetic event).
  * Use `parseFormatted(value)` from @/lib/formatNumber to get the numeric value on submit.
  */
-export const CurrencyInput = forwardRef(function CurrencyInput({ value, onChange, ...props }, ref) {
+export const CurrencyInput = forwardRef(function CurrencyInput(
+  { value, onChange, ...props },
+  ref
+) {
   function handleChange(e) {
     const raw = e.target.value.replace(/,/g, "");
     if (raw === "" || /^\d*\.?\d*$/.test(raw)) {

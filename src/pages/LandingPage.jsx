@@ -126,8 +126,8 @@ export function LandingPage({ onSignIn }) {
           money view.
         </h1>
         <p className="text-muted-foreground text-lg mb-10 max-w-xl mx-auto">
-          Alternative investments, college funding, retirement — modeled together so
-          you can see the whole picture.
+          Alternative investments, college funding, retirement — modeled together so you
+          can see the whole picture.
         </p>
         <SignInButton onSignIn={onSignIn} size="lg" />
       </section>

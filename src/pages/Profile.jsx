@@ -123,7 +123,12 @@ export function Profile() {
     setResetting(true);
     try {
       const fn = httpsCallable(functions, "updateProfile");
-      const result = await fn({ age: null, targetRetirementAge: null, activeModules: [], initializedModules: [] });
+      const result = await fn({
+        age: null,
+        targetRetirementAge: null,
+        activeModules: [],
+        initializedModules: [],
+      });
       if (result.data.ok) {
         patchProfile(result.data.data.profile);
       }
@@ -348,14 +353,18 @@ export function Profile() {
             <DialogTitle>Reset profile?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            This will clear your age, retirement year, and active modules, and return you to
-            the onboarding flow. Use this to test the new user experience.
+            This will clear your age, retirement year, and active modules, and return you
+            to the onboarding flow. Use this to test the new user experience.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setResetDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleResetProfile} disabled={resetting}>
+            <Button
+              variant="destructive"
+              onClick={handleResetProfile}
+              disabled={resetting}
+            >
               {resetting ? "Resetting…" : "Reset profile"}
             </Button>
           </DialogFooter>

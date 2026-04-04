@@ -6,6 +6,7 @@ import { Overview } from "@/pages/Overview";
 import { Retirement } from "@/pages/Retirement";
 import { College } from "@/pages/College";
 import { Alts } from "@/pages/Alts";
+import { Dividends } from "@/pages/Dividends";
 import { Equity } from "@/pages/Equity";
 import { Property } from "@/pages/Property";
 import { Profile } from "@/pages/Profile";
@@ -47,17 +48,14 @@ function AppRoutes() {
       <Route
         path="/"
         element={
-          nextSetupModule ? (
-            <Navigate to={`/${nextSetupModule}`} replace />
-          ) : (
-            <Home />
-          )
+          nextSetupModule ? <Navigate to={`/${nextSetupModule}`} replace /> : <Home />
         }
       />
       <Route path="/overview" element={<Overview />} />
       <Route path="/retirement" element={<Retirement />} />
       <Route path="/college" element={<College />} />
       <Route path="/alts" element={<Alts />} />
+      <Route path="/dividends" element={<Dividends />} />
       <Route path="/equity" element={<Equity />} />
       <Route path="/property" element={<Property />} />
       <Route path="/profile" element={<Profile />} />

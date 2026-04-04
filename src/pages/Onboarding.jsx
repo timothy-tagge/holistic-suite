@@ -102,10 +102,13 @@ export function Onboarding() {
       retirementAgeNum <= 80 &&
       (!ageValid || retirementAgeNum > ageNum));
   const numberOfKidsValid =
-    !needsCollege || (numberOfKids !== "" && numberOfKidsNum >= 1 && numberOfKidsNum <= 20);
+    !needsCollege ||
+    (numberOfKids !== "" && numberOfKidsNum >= 1 && numberOfKidsNum <= 20);
   const numberOfAltsInvestmentsValid =
     !needsAlts ||
-    (numberOfAltsInvestments !== "" && numberOfAltsInvestmentsNum >= 0 && numberOfAltsInvestmentsNum <= 500);
+    (numberOfAltsInvestments !== "" &&
+      numberOfAltsInvestmentsNum >= 0 &&
+      numberOfAltsInvestmentsNum <= 500);
   const totalCommittedCapitalValid =
     !needsAlts || (totalCommittedCapital !== "" && totalCommittedCapitalNum >= 0);
   const step2Valid =
@@ -307,7 +310,9 @@ export function Onboarding() {
                         autoFocus
                       />
                       {age !== "" && !ageValid && (
-                        <p className="text-xs text-destructive">Enter an age between 18 and 100.</p>
+                        <p className="text-xs text-destructive">
+                          Enter an age between 18 and 100.
+                        </p>
                       )}
                     </div>
 
@@ -353,17 +358,20 @@ export function Onboarding() {
                         autoFocus={!needsRetirement}
                       />
                       {numberOfKids !== "" && !numberOfKidsValid && (
-                        <p className="text-xs text-destructive">Enter a number between 1 and 20.</p>
+                        <p className="text-xs text-destructive">
+                          Enter a number between 1 and 20.
+                        </p>
                       )}
                     </div>
-
                   </>
                 )}
 
                 {needsAlts && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="numberOfAltsInvestments">Number of alternative investments</Label>
+                      <Label htmlFor="numberOfAltsInvestments">
+                        Number of alternative investments
+                      </Label>
                       <Input
                         id="numberOfAltsInvestments"
                         type="number"
@@ -375,13 +383,18 @@ export function Onboarding() {
                         className="text-lg h-12 max-w-[180px]"
                         autoFocus={!needsRetirement && !needsCollege}
                       />
-                      {numberOfAltsInvestments !== "" && !numberOfAltsInvestmentsValid && (
-                        <p className="text-xs text-destructive">Enter a number between 0 and 500.</p>
-                      )}
+                      {numberOfAltsInvestments !== "" &&
+                        !numberOfAltsInvestmentsValid && (
+                          <p className="text-xs text-destructive">
+                            Enter a number between 0 and 500.
+                          </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="totalCommittedCapital">Approximate total committed capital</Label>
+                      <Label htmlFor="totalCommittedCapital">
+                        Approximate total committed capital
+                      </Label>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground text-sm">$</span>
                         <CurrencyInput
@@ -393,7 +406,9 @@ export function Onboarding() {
                         />
                       </div>
                       {totalCommittedCapital !== "" && !totalCommittedCapitalValid && (
-                        <p className="text-xs text-destructive">Enter a positive amount.</p>
+                        <p className="text-xs text-destructive">
+                          Enter a positive amount.
+                        </p>
                       )}
                     </div>
                   </>
