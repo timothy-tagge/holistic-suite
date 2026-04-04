@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo, useDeferredValue, memo } from "react";
-import ExcelJS from "exceljs";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -240,6 +239,7 @@ function detectColumns(headers) {
 }
 
 async function parseFile(file) {
+  const { default: ExcelJS } = await import("exceljs/dist/exceljs.bare.min.js");
   const buffer = await file.arrayBuffer();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
