@@ -54,11 +54,9 @@ function Shell({ user, children }) {
     signOut(auth).catch(console.error);
   }
 
-  if (isOnboarding) return children;
-
   return (
     <div className="flex flex-col min-h-svh overflow-x-hidden w-full max-w-[100vw]">
-      <AppHeader user={user} onSignOut={handleSignOut} />
+      <AppHeader user={user} onSignOut={handleSignOut} minimal={isOnboarding} />
       <main className="flex-1 min-w-0">{children}</main>
     </div>
   );

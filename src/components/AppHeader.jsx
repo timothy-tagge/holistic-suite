@@ -48,7 +48,7 @@ function Avatar({ profile }) {
   );
 }
 
-export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
+export function AppHeader({ user, onSignOut, onShareClick, saveStatus, minimal = false }) {
   const location = useLocation();
   const [isDark, toggleDark] = useAppTheme();
   const { profile } = useProfile();
@@ -74,10 +74,10 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
           Holistic
         </Link>
 
-        <Separator orientation="vertical" className="h-5" />
+        {!minimal && <Separator orientation="vertical" className="h-5" />}
 
-        {/* Desktop nav tabs — hidden on mobile */}
-        <nav className="hidden sm:flex items-center gap-1" aria-label="Module navigation">
+        {/* Desktop nav tabs — hidden on mobile, hidden in minimal mode */}
+        {!minimal && <nav className="hidden sm:flex items-center gap-1" aria-label="Module navigation">
           {NAV.map((tab) => {
             const isActive = tab.key === currentKey;
             const isBuilt = tab.href !== null;
@@ -115,19 +115,21 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
               </Link>
             );
           })}
-        </nav>
+        </nav>}
 
-        {/* Mobile hamburger — visible only on mobile */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="flex sm:hidden"
-          onClick={() => setMobileMenuOpen((o) => !o)}
-          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={mobileMenuOpen}
-        >
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        {/* Mobile hamburger — visible only on mobile, not in minimal mode */}
+        {!minimal && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex sm:hidden"
+            onClick={() => setMobileMenuOpen((o) => !o)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        )}
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-2">
@@ -190,7 +192,7 @@ export function AppHeader({ user, onSignOut, onShareClick, saveStatus }) {
       </div>
 
       {/* Mobile navigation dropdown */}
-      {mobileMenuOpen && (
+      {!minimal && mobileMenuOpen && (
         <nav
           className="flex sm:hidden flex-col border-t bg-background/95 backdrop-blur"
           aria-label="Mobile navigation"
