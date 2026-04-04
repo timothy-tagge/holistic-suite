@@ -7,19 +7,19 @@ function npv(amounts, years, r) {
 }
 function dnpv(amounts, years, r) {
   return amounts.reduce(
-    (s, a, i) => s - years[i] * a / (Math.pow(1 + r, years[i]) * (1 + r)),
+    (s, a, i) => s - (years[i] * a) / (Math.pow(1 + r, years[i]) * (1 + r)),
     0
   );
 }
 
 export function xirr(cashFlows) {
   if (!cashFlows || cashFlows.length < 2) return null;
-  if (!cashFlows.some(cf => cf.amount < 0)) return null;
-  if (!cashFlows.some(cf => cf.amount > 0)) return null;
+  if (!cashFlows.some((cf) => cf.amount < 0)) return null;
+  if (!cashFlows.some((cf) => cf.amount > 0)) return null;
 
-  const t0 = Math.min(...cashFlows.map(cf => new Date(cf.date).getTime()));
-  const amounts = cashFlows.map(cf => cf.amount);
-  const years = cashFlows.map(cf => (new Date(cf.date).getTime() - t0) / MS_PER_YEAR);
+  const t0 = Math.min(...cashFlows.map((cf) => new Date(cf.date).getTime()));
+  const amounts = cashFlows.map((cf) => cf.amount);
+  const years = cashFlows.map((cf) => (new Date(cf.date).getTime() - t0) / MS_PER_YEAR);
 
   for (const guess of [0.1, 0.0, -0.1, 0.3, 0.5]) {
     let r = guess;
@@ -41,7 +41,7 @@ export function xirr(cashFlows) {
 
 // calls → negative, everything else → positive
 export function toSignedCashFlows(cashFlows) {
-  return (cashFlows ?? []).map(cf => ({
+  return (cashFlows ?? []).map((cf) => ({
     date: cf.date,
     amount: cf.type === "call" ? -cf.amount : cf.amount,
   }));

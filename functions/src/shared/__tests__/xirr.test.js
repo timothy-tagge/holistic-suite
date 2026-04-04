@@ -11,17 +11,21 @@ describe("xirr", () => {
   });
 
   it("returns null when all cash flows are outflows (no positive)", () => {
-    expect(xirr([
-      { date: "2023-01-01", amount: -1000 },
-      { date: "2024-01-01", amount: -500 },
-    ])).toBeNull();
+    expect(
+      xirr([
+        { date: "2023-01-01", amount: -1000 },
+        { date: "2024-01-01", amount: -500 },
+      ])
+    ).toBeNull();
   });
 
   it("returns null when all cash flows are inflows (no negative)", () => {
-    expect(xirr([
-      { date: "2023-01-01", amount: 500 },
-      { date: "2024-01-01", amount: 600 },
-    ])).toBeNull();
+    expect(
+      xirr([
+        { date: "2023-01-01", amount: 500 },
+        { date: "2024-01-01", amount: 600 },
+      ])
+    ).toBeNull();
   });
 
   it("computes ~10% IRR for a simple 1-year investment", () => {

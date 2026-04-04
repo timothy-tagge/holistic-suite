@@ -23,7 +23,10 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
   // Validate inputs (null is allowed to clear a field)
   if (age !== undefined && age !== null) {
     if (typeof age !== "number" || !Number.isInteger(age) || age < 18 || age > 100) {
-      throw new HttpsError("invalid-argument", "Age must be an integer between 18 and 100.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Age must be an integer between 18 and 100."
+      );
     }
   }
 
@@ -57,7 +60,10 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
 
   if (monthlyCollegeBudget !== undefined && monthlyCollegeBudget !== null) {
     if (typeof monthlyCollegeBudget !== "number" || monthlyCollegeBudget < 0) {
-      throw new HttpsError("invalid-argument", "Monthly college budget must be a non-negative number.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Monthly college budget must be a non-negative number."
+      );
     }
   }
 
@@ -68,13 +74,19 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
       numberOfAltsInvestments < 0 ||
       numberOfAltsInvestments > 500
     ) {
-      throw new HttpsError("invalid-argument", "Number of alts investments must be an integer between 0 and 500.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Number of alts investments must be an integer between 0 and 500."
+      );
     }
   }
 
   if (totalCommittedCapital !== undefined && totalCommittedCapital !== null) {
     if (typeof totalCommittedCapital !== "number" || totalCommittedCapital < 0) {
-      throw new HttpsError("invalid-argument", "Total committed capital must be a non-negative number.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Total committed capital must be a non-negative number."
+      );
     }
   }
 
@@ -102,11 +114,15 @@ export const updateProfile = onCall({ cors: true }, async (request) => {
 
   const updates = { updatedAt: now };
   if (age !== undefined) updates.age = age;
-  if (targetRetirementAge !== undefined) updates.targetRetirementAge = targetRetirementAge;
+  if (targetRetirementAge !== undefined)
+    updates.targetRetirementAge = targetRetirementAge;
   if (numberOfKids !== undefined) updates.numberOfKids = numberOfKids;
-  if (monthlyCollegeBudget !== undefined) updates.monthlyCollegeBudget = monthlyCollegeBudget;
-  if (numberOfAltsInvestments !== undefined) updates.numberOfAltsInvestments = numberOfAltsInvestments;
-  if (totalCommittedCapital !== undefined) updates.totalCommittedCapital = totalCommittedCapital;
+  if (monthlyCollegeBudget !== undefined)
+    updates.monthlyCollegeBudget = monthlyCollegeBudget;
+  if (numberOfAltsInvestments !== undefined)
+    updates.numberOfAltsInvestments = numberOfAltsInvestments;
+  if (totalCommittedCapital !== undefined)
+    updates.totalCommittedCapital = totalCommittedCapital;
   if (activeModules !== undefined) updates.activeModules = activeModules;
   if (initializedModules !== undefined) updates.initializedModules = initializedModules;
 
