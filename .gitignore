@@ -29,6 +29,9 @@ firestore-debug.log
 ui-debug.log
 database-debug.log
 
+# Claude Code local config
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
