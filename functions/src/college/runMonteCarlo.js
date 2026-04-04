@@ -5,8 +5,8 @@ import { randomNormal, computeYearlyBands } from "../shared/monteCarlo.js";
 const COST_TIER_MAP = {
   "public-in-state": 27000,
   "public-out-of-state": 45000,
-  "private": 60000,
-  "elite": 85000,
+  private: 60000,
+  elite: 85000,
 };
 const COLLEGE_YEARS = 4;
 const DEFAULT_INFLATION = 0.03;
@@ -22,7 +22,15 @@ const MC_STD_DEV = 0.12;
  * @returns {{ yearlyBands, successRate, numSims, stdDev }}
  */
 export function runCollegeMonteCarlo(plan, numSims = 1000) {
-  const { children, totalSavings, annualReturn, monthlyContribution = 0, lumpSums = [], loans, inflationRate } = plan;
+  const {
+    children,
+    totalSavings,
+    annualReturn,
+    monthlyContribution = 0,
+    lumpSums = [],
+    loans,
+    inflationRate,
+  } = plan;
   const inflation = inflationRate ?? DEFAULT_INFLATION;
   const now = new Date().getFullYear();
   const annualContribution = (monthlyContribution ?? 0) * 12;
@@ -52,8 +60,10 @@ export function runCollegeMonteCarlo(plan, numSims = 1000) {
       const r = Math.max(-0.5, Math.min(0.6, randomNormal(annualReturn, MC_STD_DEV)));
       balance = Math.max(0, balance * (1 + r));
       balance += annualContribution;
-      const lumpSum = (lumpSums ?? []).find((ls) => ls.year === year);
-      if (lumpSum) balance += lumpSum.amount;
+      const lumpSumTotal = (lumpSums ?? [])
+        .filter((ls) => ls.year === year)
+        .reduce((s, ls) => s + ls.amount, 0);
+      if (lumpSumTotal > 0) balance += lumpSumTotal;
 
       for (const child of childData) {
         if (year >= child.startYear && year < child.endYear) {
@@ -87,10 +97,14 @@ export function runCollegeMonteCarlo(plan, numSims = 1000) {
  * @returns {number} — additional monthly dollars needed, rounded up to nearest $25
  */
 export function findExtraMonthlyContribution(plan, targetRate = 0.9) {
-  let lo = 0, hi = 5000;
+  let lo = 0,
+    hi = 5000;
   for (let i = 0; i < 14; i++) {
     const mid = (lo + hi) / 2;
-    const testPlan = { ...plan, monthlyContribution: (plan.monthlyContribution ?? 0) + mid };
+    const testPlan = {
+      ...plan,
+      monthlyContribution: (plan.monthlyContribution ?? 0) + mid,
+    };
     const { successRate } = runCollegeMonteCarlo(testPlan, 300);
     if (successRate >= targetRate) hi = mid;
     else lo = mid;

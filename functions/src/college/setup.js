@@ -10,7 +10,8 @@ export const collegeSetup = onCall({ cors: true }, async (request) => {
   }
 
   const { uid } = request.auth;
-  const { children, totalSavings, annualReturn, monthlyContribution, inflationRate } = request.data ?? {};
+  const { children, totalSavings, annualReturn, monthlyContribution, inflationRate } =
+    request.data ?? {};
 
   if (!Array.isArray(children) || children.length === 0) {
     throw new HttpsError("invalid-argument", "At least one child is required.");
@@ -25,7 +26,10 @@ export const collegeSetup = onCall({ cors: true }, async (request) => {
       child.birthYear < currentYear - 22 ||
       child.birthYear > currentYear + 2
     ) {
-      throw new HttpsError("invalid-argument", "Each child must have a valid birth year.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Each child must have a valid birth year."
+      );
     }
     if (!VALID_COST_TIERS.includes(child.costTier)) {
       throw new HttpsError("invalid-argument", "Invalid cost tier.");
@@ -34,29 +38,37 @@ export const collegeSetup = onCall({ cors: true }, async (request) => {
       child.annualCostBase !== undefined &&
       (typeof child.annualCostBase !== "number" || child.annualCostBase <= 0)
     ) {
-      throw new HttpsError("invalid-argument", "Annual cost base must be a positive number.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Annual cost base must be a positive number."
+      );
     }
   }
 
   if (typeof totalSavings !== "number" || totalSavings < 0) {
-    throw new HttpsError("invalid-argument", "Total savings must be a non-negative number.");
+    throw new HttpsError(
+      "invalid-argument",
+      "Total savings must be a non-negative number."
+    );
   }
 
-  if (
-    typeof annualReturn !== "number" ||
-    annualReturn < 0 ||
-    annualReturn > 0.25
-  ) {
+  if (typeof annualReturn !== "number" || annualReturn < 0 || annualReturn > 0.25) {
     throw new HttpsError("invalid-argument", "Annual return must be between 0% and 25%.");
   }
 
   if (typeof monthlyContribution !== "number" || monthlyContribution < 0) {
-    throw new HttpsError("invalid-argument", "Monthly contribution must be a non-negative number.");
+    throw new HttpsError(
+      "invalid-argument",
+      "Monthly contribution must be a non-negative number."
+    );
   }
 
   const inflation = inflationRate ?? 0.03;
   if (typeof inflation !== "number" || inflation < 0 || inflation > 0.15) {
-    throw new HttpsError("invalid-argument", "Inflation rate must be between 0% and 15%.");
+    throw new HttpsError(
+      "invalid-argument",
+      "Inflation rate must be between 0% and 15%."
+    );
   }
 
   const db = getFirestore();

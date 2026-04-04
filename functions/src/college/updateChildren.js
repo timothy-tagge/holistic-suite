@@ -25,7 +25,10 @@ export const collegeUpdateChildren = onCall({ cors: true }, async (request) => {
       child.birthYear < currentYear - 22 ||
       child.birthYear > currentYear + 2
     ) {
-      throw new HttpsError("invalid-argument", "Each child must have a valid birth year.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Each child must have a valid birth year."
+      );
     }
     if (!VALID_COST_TIERS.includes(child.costTier)) {
       throw new HttpsError("invalid-argument", "Invalid cost tier.");
@@ -37,7 +40,10 @@ export const collegeUpdateChildren = onCall({ cors: true }, async (request) => {
       child.annualCostBase !== undefined &&
       (typeof child.annualCostBase !== "number" || child.annualCostBase <= 0)
     ) {
-      throw new HttpsError("invalid-argument", "Annual cost base must be a positive number.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Annual cost base must be a positive number."
+      );
     }
   }
 

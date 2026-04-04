@@ -8,14 +8,27 @@ export const collegeUpdateSavings = onCall({ cors: true }, async (request) => {
   }
 
   const { uid } = request.auth;
-  const { totalSavings, monthlyContribution, annualReturn, inflationRate, lumpSums, loans } = request.data ?? {};
+  const {
+    totalSavings,
+    monthlyContribution,
+    annualReturn,
+    inflationRate,
+    lumpSums,
+    loans,
+  } = request.data ?? {};
 
   if (typeof totalSavings !== "number" || totalSavings < 0) {
-    throw new HttpsError("invalid-argument", "Total savings must be a non-negative number.");
+    throw new HttpsError(
+      "invalid-argument",
+      "Total savings must be a non-negative number."
+    );
   }
 
   if (typeof monthlyContribution !== "number" || monthlyContribution < 0) {
-    throw new HttpsError("invalid-argument", "Monthly contribution must be a non-negative number.");
+    throw new HttpsError(
+      "invalid-argument",
+      "Monthly contribution must be a non-negative number."
+    );
   }
 
   if (typeof annualReturn !== "number" || annualReturn < 0 || annualReturn > 0.25) {
@@ -24,16 +37,24 @@ export const collegeUpdateSavings = onCall({ cors: true }, async (request) => {
 
   const inflation = inflationRate ?? 0.03;
   if (typeof inflation !== "number" || inflation < 0 || inflation > 0.15) {
-    throw new HttpsError("invalid-argument", "Inflation rate must be between 0% and 15%.");
+    throw new HttpsError(
+      "invalid-argument",
+      "Inflation rate must be between 0% and 15%."
+    );
   }
 
   if (
     loans !== null &&
     loans !== undefined &&
     (typeof loans !== "object" ||
-      typeof loans.totalAmount !== "number" || loans.totalAmount < 0 ||
-      typeof loans.rate !== "number" || loans.rate < 0 || loans.rate > 0.25 ||
-      typeof loans.termYears !== "number" || loans.termYears < 1 || loans.termYears > 30)
+      typeof loans.totalAmount !== "number" ||
+      loans.totalAmount < 0 ||
+      typeof loans.rate !== "number" ||
+      loans.rate < 0 ||
+      loans.rate > 0.25 ||
+      typeof loans.termYears !== "number" ||
+      loans.termYears < 1 ||
+      loans.termYears > 30)
   ) {
     throw new HttpsError("invalid-argument", "Invalid loans configuration.");
   }
@@ -48,10 +69,16 @@ export const collegeUpdateSavings = onCall({ cors: true }, async (request) => {
       !Number.isInteger(ls.year) ||
       ls.year < currentYear
     ) {
-      throw new HttpsError("invalid-argument", "Each lump sum must have a valid future year.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Each lump sum must have a valid future year."
+      );
     }
     if (typeof ls.amount !== "number" || ls.amount <= 0) {
-      throw new HttpsError("invalid-argument", "Each lump sum amount must be a positive number.");
+      throw new HttpsError(
+        "invalid-argument",
+        "Each lump sum amount must be a positive number."
+      );
     }
     if (ls.label !== undefined && typeof ls.label !== "string") {
       throw new HttpsError("invalid-argument", "Lump sum label must be a string.");

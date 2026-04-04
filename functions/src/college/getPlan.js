@@ -8,6 +8,24 @@ export const collegeGetPlan = onCall({ cors: true }, async (request) => {
   }
 
   const { uid } = request.auth;
+  const { override } = request.data ?? {};
+
+  // If an override payload is provided, run Monte Carlo on it and return the
+  // enriched plan without reading or writing Firestore. Used for sample preview.
+  if (override != null) {
+    const mcResult = runCollegeMonteCarlo(override);
+    const extraMonthly = findExtraMonthlyContribution(override);
+    const plan = {
+      ...override,
+      monteCarloResult: {
+        ...mcResult,
+        extraMonthly,
+        computedAt: new Date().toISOString(),
+      },
+    };
+    return { ok: true, data: { plan } };
+  }
+
   const db = getFirestore();
   const planRef = db.collection("college-plans").doc(uid);
   const snap = await planRef.get();
@@ -18,15 +36,14 @@ export const collegeGetPlan = onCall({ cors: true }, async (request) => {
 
   let plan = snap.data();
 
-  // Lazy-compute Monte Carlo if the plan predates server-side MC
-  if (!plan.monteCarloResult) {
-    const now = new Date().toISOString();
-    const mcResult = runCollegeMonteCarlo(plan);
-    const extraMonthly = findExtraMonthlyContribution(plan);
-    const monteCarloResult = { ...mcResult, extraMonthly, computedAt: now };
-    await planRef.update({ monteCarloResult });
-    plan = { ...plan, monteCarloResult };
-  }
+  // Always recompute Monte Carlo on load so fixes to the MC algorithm take
+  // effect immediately without requiring stale cached results to be cleared.
+  const now = new Date().toISOString();
+  const mcResult = runCollegeMonteCarlo(plan);
+  const extraMonthly = findExtraMonthlyContribution(plan);
+  const monteCarloResult = { ...mcResult, extraMonthly, computedAt: now };
+  await planRef.update({ monteCarloResult });
+  plan = { ...plan, monteCarloResult };
 
   return { ok: true, data: { plan } };
 });

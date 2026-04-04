@@ -6,15 +6,15 @@ import { getFirestore } from "firebase-admin/firestore";
 const COST_TIER_MAP = {
   "public-in-state": 27000,
   "public-out-of-state": 45000,
-  "private": 60000,
-  "elite": 85000,
+  private: 60000,
+  elite: 85000,
 };
 const COLLEGE_YEARS = 4;
 const DEFAULT_INFLATION = 0.03;
 const DEFAULT_LOAN_RATE = 0.0639;
 const DEFAULT_LOAN_TERM = 10;
 
-function calcMonthlyPayment(principal, annualRate, termYears) {
+export function calcMonthlyPayment(principal, annualRate, termYears) {
   if (principal <= 0) return 0;
   const r = annualRate / 12;
   const n = termYears * 12;
@@ -22,7 +22,7 @@ function calcMonthlyPayment(principal, annualRate, termYears) {
   return (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
 }
 
-function projectPlan(plan) {
+export function projectPlan(plan) {
   const {
     children,
     totalSavings,
@@ -54,8 +54,10 @@ function projectPlan(plan) {
   for (let year = now; year <= lastYear; year++) {
     balance *= 1 + annualReturn;
     balance += annualContribution;
-    const lumpSum = lumpSums.find((ls) => ls.year === year);
-    if (lumpSum) balance += lumpSum.amount;
+    const lumpSumTotal = lumpSums
+      .filter((ls) => ls.year === year)
+      .reduce((s, ls) => s + ls.amount, 0);
+    if (lumpSumTotal > 0) balance += lumpSumTotal;
 
     for (const child of childData) {
       if (year >= child.startYear && year < child.endYear) {
@@ -75,7 +77,9 @@ function projectPlan(plan) {
   const loanRate = loans?.rate ?? DEFAULT_LOAN_RATE;
   const loanTerm = loans?.termYears ?? DEFAULT_LOAN_TERM;
   const remainingGap = gap - loanAmount;
-  const monthlyLoanPayment = Math.round(calcMonthlyPayment(loanAmount, loanRate, loanTerm));
+  const monthlyLoanPayment = Math.round(
+    calcMonthlyPayment(loanAmount, loanRate, loanTerm)
+  );
 
   return {
     finalBalance,
