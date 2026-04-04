@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useDeferredValue, memo } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -239,29 +239,25 @@ function detectColumns(headers) {
   };
 }
 
-function parseFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-        if (rows.length < 2) {
-          resolve({ rows: [], headers: [], mapping: {} });
-          return;
-        }
-        const headers = rows[0].map(String);
-        const mapping = detectColumns(headers);
-        const data = rows.slice(1).filter((r) => r.some((c) => c !== ""));
-        resolve({ headers, mapping, data });
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsArrayBuffer(file);
+async function parseFile(file) {
+  const buffer = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const ws = wb.worksheets[0];
+  if (!ws) return { rows: [], headers: [], mapping: {} };
+
+  const rows = [];
+  ws.eachRow({ includeEmpty: false }, (row) => {
+    rows.push(row.values.slice(1).map((v) => (v == null ? "" : String(v))));
   });
+
+  if (rows.length < 2) {
+    return { rows: [], headers: [], mapping: {} };
+  }
+  const headers = rows[0].map(String);
+  const mapping = detectColumns(headers);
+  const data = rows.slice(1).filter((r) => r.some((c) => c !== ""));
+  return { headers, mapping, data };
 }
 
 // ── ImportDialog ──────────────────────────────────────────────────────────────
