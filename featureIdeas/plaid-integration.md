@@ -176,6 +176,55 @@ profile/{uid}/plaid-items/{itemId}
 `accessToken` is the only secret. Store it encrypted using Cloud KMS or Firebase
 Secret Manager envelope encryption. Never include it in any API response.
 
+### Token encryption — why and how
+
+**What the access token is:** A permanent string (e.g. `access-production-abc123...`)
+that lets the app call Plaid on behalf of a user. It never expires unless the user
+disconnects or the institution forces re-auth. Anyone holding this token can read that
+user's full account balances, holdings, and transaction history — without knowing any
+bank credentials. Tokens are read-only by default (cannot move money), but full
+financial exposure is still a serious risk.
+
+**Why plain Firestore storage is insufficient:** If an access token is stored as a
+plain string in Firestore, it is readable by anyone with Firebase admin access and
+by any Firestore rules misconfiguration — even a brief mistake during development.
+It would also appear in any Firestore export or backup.
+
+**The fix — envelope encryption:**
+
+```
+Plaid returns access_token (plaintext)
+        ↓
+Cloud Function sends plaintext to Cloud KMS
+        ↓
+KMS returns encrypted ciphertext blob
+        ↓
+Ciphertext stored in Firestore (useless without the KMS key)
+        ↓
+On sync: Cloud Function sends ciphertext to KMS → gets plaintext back
+        → calls Plaid API → plaintext discarded from memory
+        → plaintext never touches Firestore, never appears in logs
+```
+
+The KMS key never leaves Google Cloud infrastructure. Even a full Firestore dump
+exposes only encrypted blobs.
+
+**Why to do this even for personal use:**
+- One-time setup, ~half a day of work
+- Cost is negligible (~$0.06/key/month + fractions of a cent per operation)
+- Protects against your own future mistakes — a misconfigured Firestore rule during
+  development won't expose a live bank token
+- Avoids a painful migration later: tokens stored in plaintext cannot be encrypted
+  retroactively without forcing every user to re-authenticate and reconnect their
+  accounts
+- Sets the right pattern from day one regardless of whether the app stays private
+  or eventually gets other users
+
+**Implementation:** Use the `@google-cloud/kms` Node SDK in the Cloud Functions.
+Create one KMS key ring (`plaid-tokens`) with one key (`access-token-key`) in the
+same GCP project as the Firebase app. The Cloud Function service account needs
+`roles/cloudkms.cryptoKeyEncrypterDecrypter` on that key.
+
 ### Sync strategy
 
 **On-demand sync** (Phase 1): user clicks "Sync now" → Cloud Function fetches latest
