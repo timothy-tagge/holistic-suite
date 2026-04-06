@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "@/firebase";
+import { auth, functions } from "@/firebase";
 import { useProfile } from "@/contexts/useProfile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import {
   Check,
   Save,
   X,
+  Copy,
 } from "lucide-react";
 
 const MODULES = [
@@ -65,6 +66,19 @@ export function Profile() {
   }
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [copyTokenStatus, setCopyTokenStatus] = useState(null); // null | "copied" | "error"
+
+  async function handleCopyToken() {
+    try {
+      const token = await auth.currentUser.getIdToken(/* forceRefresh */ true);
+      await navigator.clipboard.writeText(token);
+      setCopyTokenStatus("copied");
+      setTimeout(() => setCopyTokenStatus(null), 3000);
+    } catch {
+      setCopyTokenStatus("error");
+      setTimeout(() => setCopyTokenStatus(null), 3000);
+    }
+  }
 
   // Sync form from profile when loaded
   useEffect(() => {
@@ -335,16 +349,32 @@ export function Profile() {
 
       {/* Developer tools */}
       <Separator className="my-10" />
-      <div className="space-y-2">
+      <div className="space-y-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Developer tools
         </p>
-        <p className="text-xs text-muted-foreground">
-          Clears age, retirement year, and active modules — returns to onboarding.
-        </p>
-        <Button variant="outline" size="sm" onClick={() => setResetDialogOpen(true)}>
-          Reset profile
-        </Button>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            Copy a fresh Firebase ID token to use in Swagger UI or curl.
+          </p>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleCopyToken}>
+            {copyTokenStatus === "copied" ? (
+              <><Check className="h-4 w-4" /> Copied</>
+            ) : copyTokenStatus === "error" ? (
+              "Failed — try again"
+            ) : (
+              <><Copy className="h-4 w-4" /> Copy API token</>
+            )}
+          </Button>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            Clears age, retirement year, and active modules — returns to onboarding.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setResetDialogOpen(true)}>
+            Reset profile
+          </Button>
+        </div>
       </div>
 
       <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
